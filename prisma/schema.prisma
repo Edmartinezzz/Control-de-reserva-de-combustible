@@ -1,0 +1,60 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Sector {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  orders Order[]
+}
+
+model Driver {
+  id        String     @id @default(cuid())
+  name      String
+  phone     String
+  deliveries Delivery[]
+}
+
+model Order {
+  id           String    @id @default(cuid())
+  createdAt    DateTime  @default(now())
+  customerName String
+  phone        String
+  address      String
+  qty          Int
+  gasType      String
+  status       OrderStatus @default(PENDIENTE)
+  sectorId     String
+  sector       Sector   @relation(fields: [sectorId], references: [id])
+  delivery     Delivery?
+}
+
+model Delivery {
+  id        String       @id @default(cuid())
+  orderId   String       @unique
+  order     Order        @relation(fields: [orderId], references: [id])
+  driverId  String?
+  driver    Driver?      @relation(fields: [driverId], references: [id])
+  status    DeliveryStatus @default(PENDIENTE)
+}
+
+enum OrderStatus {
+  PENDIENTE
+  ASIGNADO
+  COMPLETADO
+  CANCELADO
+}
+
+enum DeliveryStatus {
+  PENDIENTE
+  EN_CAMINO
+  ENTREGADO
+  FALLIDO
+}
+
+
