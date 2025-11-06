@@ -3,7 +3,7 @@
 import { Bell, Search, UserCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-export function AdminTopbar() {
+export default function AdminTopbar() {
   const router = useRouter();
 
   return (

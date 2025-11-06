@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, Truck, Users, Settings, LogOut, Package } from 'lucide-react';
 
-export function Sidebar() {
+export default function Sidebar() {
   const pathname = usePathname();
   
   const navItems = [

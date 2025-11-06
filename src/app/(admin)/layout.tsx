@@ -1,8 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Sidebar } from '@/components/admin/Sidebar';
-import { AdminTopbar } from '@/components/admin/AdminTopbar';
+import dynamic from 'next/dynamic';
+
+// Importar componentes dinámicamente para asegurar que se carguen del lado del cliente
+const Sidebar = dynamic(() => import('@/components/admin/Sidebar'), { ssr: false });
+const AdminTopbar = dynamic(() => import('@/components/admin/AdminTopbar'), { ssr: false });
 
 export default function AdminLayout({
   children,
