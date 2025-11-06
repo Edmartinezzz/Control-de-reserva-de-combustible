@@ -5,11 +5,11 @@ export const dynamic = 'force-dynamic';
 
 export async function PATCH(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const { status } = await request.json();
-    const { id } = await context.params;
+    const { id } = params;
     
     if (!status) {
       return NextResponse.json(
@@ -33,7 +33,7 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error('Error updating delivery status:', error);
+    console.error('Error actualizando estado de entrega:', error);
     return NextResponse.json(
       { error: 'Error al actualizar el estado de la entrega' },
       { status: 500 }
@@ -41,8 +41,4 @@ export async function PATCH(
   }
 }
 
-export const config = {
-  runtime: 'edge',
-};
-
-
+export const runtime = 'nodejs';
