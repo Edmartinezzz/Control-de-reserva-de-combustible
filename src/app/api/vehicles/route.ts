@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '../../../lib/prisma';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const vehicles = await (prisma as any).vehicle.findMany({ include: { sector: true, owner: true } });
   return NextResponse.json(vehicles);
 }
 
 export async function PATCH(req: NextRequest) {
+  if (req.method !== 'PATCH') {
+    return NextResponse.json({ error: 'Método no permitido' }, { status: 405 });
+  }
   const body = await req.json();
   const { id, litersAvailable } = body;
   if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 });
