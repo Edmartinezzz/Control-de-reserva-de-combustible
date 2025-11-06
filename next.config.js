@@ -1,7 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Configuración de webpack
+  // Enable server actions
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
+  },
+  // Webpack configuration
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,
@@ -9,7 +15,7 @@ const nextConfig = {
     };
     return config;
   },
-  // Configuración de imágenes
+  // Image configuration
   images: {
     remotePatterns: [
       {
@@ -20,12 +26,20 @@ const nextConfig = {
       },
     ],
   },
-  // Configuración para API routes
-  experimental: {
-    serverActions: true,
-    serverComponentsExternalPackages: ['prisma', '@prisma/client'],
+  // Explicitly specify build output
+  output: 'standalone',
+  // Turbopack configuration
+  turbopack: {
+    // Enable Webpack compatibility
+    webpack: {
+      resolve: {
+        alias: {
+          '@': require('path').resolve(__dirname, 'src'),
+        },
+      },
+    },
   },
-  // Configuración de logging extendida (solo en desarrollo)
+  // Extended logging (development only)
   ...(process.env.NODE_ENV === 'development' && {
     logging: {
       fetches: {
