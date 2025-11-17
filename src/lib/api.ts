@@ -1,14 +1,14 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-
+// Usar ruta relativa para la API (vacío para rutas relativas)
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: '',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
   withCredentials: true,
+  timeout: 10000, // 10 segundos de timeout
 });
 
 // Añadir el token a las solicitudes
@@ -39,7 +39,7 @@ api.interceptors.response.use(
     
     if (error.code === 'ERR_NETWORK') {
       console.error('Error de conexión con el servidor:', error.message);
-      throw new Error(`No se pudo conectar al servidor. Por favor, verifica que el servidor esté en ejecución en ${API_URL}`);
+      throw new Error('No se pudo conectar al servidor. Por favor, verifica tu conexión a internet o contacta al administrador.');
     }
     
     if (error.response) {
