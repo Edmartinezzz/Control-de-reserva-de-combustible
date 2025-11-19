@@ -2,13 +2,13 @@ import axios from 'axios';
 
 // Usar ruta relativa para la API (vacío para rutas relativas)
 const api = axios.create({
-  baseURL: '',
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || '',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
   withCredentials: true,
-  timeout: 10000, // 10 segundos de timeout
+  timeout: 60000, // 60 segundos de timeout (tolerancia a cold-start)
 });
 
 // Añadir el token a las solicitudes

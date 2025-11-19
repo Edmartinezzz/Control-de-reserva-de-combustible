@@ -1,14 +1,25 @@
 import { NextResponse } from 'next/server';
 
-// Nota: las estadísticas reales se sirven desde el backend Express en /api/estadisticas.
-// Este handler existe solo para evitar errores en tiempo de build/ejecución en Vercel
-// y devuelve un mensaje informativo si alguien lo invoca directamente en el frontend.
-
 export async function GET() {
+  const base = process.env.BACKEND_API_BASE_URL;
+  if (base) {
+    try {
+      const resp = await fetch(`${base}/api/estadisticas`, { cache: 'no-store' });
+      if (!resp.ok) {
+        const text = await resp.text();
+        return NextResponse.json({ error: 'Error al obtener estadísticas', details: text }, { status: resp.status });
+      }
+      const data = await resp.json();
+      return NextResponse.json(data);
+    } catch (e: any) {
+      return NextResponse.json({ error: 'No se pudo conectar al backend de estadísticas' }, { status: 502 });
+    }
+  }
+  // Sin backend configurado: responder informativo
   return NextResponse.json(
     {
       error:
-        'Este endpoint de Next.js no está activo. Las estadísticas del dashboard se obtienen directamente del backend Express (ruta /api/estadisticas).',
+        'Este endpoint de Next.js no está activo. Configure BACKEND_API_BASE_URL para proxy al backend Express (ruta /api/estadisticas).',
     },
     { status: 503 }
   );

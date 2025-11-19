@@ -23,3 +23,8 @@ pnpm-debug.log*
 # mac/win
 .DS_Store
 Thumbs.db
+
+# databases
+*.db
+*.sqlite
+*.sqlite3

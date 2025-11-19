@@ -9,10 +9,13 @@ from functools import wraps
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'tu_clave_secreta_muy_segura'  # En producción, usa una variable de entorno
 
+# Obtener origen permitido desde variable de entorno (para producción)
+ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001').split(',')
+
 # Configuración CORS
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["http://localhost:3000", "http://localhost:3001"],
+        "origins": ALLOWED_ORIGINS,
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
     }
@@ -21,7 +24,9 @@ CORS(app, resources={
 # Manejar solicitudes OPTIONS
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
+    origin = request.headers.get('Origin')
+    if origin in ALLOWED_ORIGINS:
+        response.headers.add('Access-Control-Allow-Origin', origin)
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     response.headers.add('Access-Control-Allow-Credentials', 'true')
@@ -324,5 +329,12 @@ with app.app_context():
     init_db()
 
 if __name__ == '__main__':
-    print("Servidor Flask iniciado en http://127.0.0.1:5000")
-    app.run(host='127.0.0.1', port=5000, debug=True)
+    # Puerto dinámico para producción (Railway usa PORT)
+    port = int(os.environ.get('PORT', 5000))
+    # En producción, host debe ser 0.0.0.0 para aceptar conexiones externas
+    host = os.environ.get('HOST', '0.0.0.0')
+    # Debug solo en desarrollo
+    is_dev = os.environ.get('FLASK_ENV', 'development') == 'development'
+    
+    print(f"Servidor Flask iniciado en http://{host}:{port}")
+    app.run(host=host, port=port, debug=is_dev)

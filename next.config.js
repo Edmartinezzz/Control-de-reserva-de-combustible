@@ -44,8 +44,19 @@ const nextConfig = {
     ],
   },
   
+  async rewrites() {
+    const apiBase = process.env.BACKEND_API_BASE_URL;
+    if (!apiBase) return [];
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${apiBase}/api/:path*`,
+      },
+    ];
+  },
+  
   // Configuración de salida
-  output: 'standalone',
+  // output: 'standalone', // Deshabilitado para que "next start" funcione en Render sin Start Command personalizado
   
   // Configuración de paquetes para el servidor
   // Usamos solo serverExternalPackages para evitar conflictos
