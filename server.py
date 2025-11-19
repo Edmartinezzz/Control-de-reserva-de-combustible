@@ -9,6 +9,15 @@ from functools import wraps
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'tu_clave_secreta_muy_segura'  # En producción, usa una variable de entorno
 
+# Ruta raíz para health check
+@app.route('/', methods=['GET'])
+def home():
+    return jsonify({
+        'status': 'online',
+        'message': 'API de Despacho Gas+ funcionando correctamente',
+        'version': '1.0.0'
+    })
+
 # Obtener origen permitido desde variable de entorno (para producción)
 ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000,http://localhost:3001').split(',')
 

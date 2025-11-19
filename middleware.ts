@@ -13,7 +13,7 @@ export function middleware(request: NextRequest) {
 
   const response = NextResponse.next()
 
-  if (isAllowedOrigin) {
+  if (isAllowedOrigin && origin) {
     response.headers.set('Access-Control-Allow-Origin', origin)
   }
 
