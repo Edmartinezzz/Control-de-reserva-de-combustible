@@ -1018,18 +1018,29 @@ def crear_agendamiento():
         if not cliente_id or not litros:
             return jsonify({'error': 'Faltan datos requeridos'}), 400
         
-        # Insertar agendamiento
+        # Generar código de ticket (número secuencial para la fecha agendada)
+        cursor.execute('''
+            SELECT COALESCE(MAX(codigo_ticket), 0) + 1 as next_ticket
+            FROM agendamientos
+            WHERE fecha_agendada = ?
+        ''', (fecha_agendada,))
+        
+        codigo_ticket = cursor.fetchone()['next_ticket']
+        
+        # Insertar agendamiento con código de ticket
         cursor.execute('''
             INSERT INTO agendamientos (
                 cliente_id, tipo_combustible, litros, fecha_agendada, 
-                subcliente_id, estado
-            ) VALUES (?, ?, ?, ?, ?, 'pendiente')
-        ''', (cliente_id, tipo_combustible, litros, fecha_agendada, subcliente_id))
+                subcliente_id, estado, codigo_ticket
+            ) VALUES (?, ?, ?, ?, ?, 'pendiente', ?)
+        ''', (cliente_id, tipo_combustible, litros, fecha_agendada, subcliente_id, codigo_ticket))
         
         db.commit()
         return jsonify({
             'message': 'Agendamiento creado exitosamente',
-            'id': cursor.lastrowid
+            'id': cursor.lastrowid,
+            'codigo_ticket': codigo_ticket,
+            'fecha_agendada': fecha_agendada
         }), 201
     except Exception as e:
         db.rollback()
