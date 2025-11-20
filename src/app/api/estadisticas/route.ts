@@ -1,10 +1,27 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const base = process.env.BACKEND_API_BASE_URL;
   if (base) {
     try {
-      const resp = await fetch(`${base}/api/estadisticas`, { cache: 'no-store' });
+      // Obtener el token de Authorization del header de la petición
+      const authHeader = request.headers.get('authorization');
+      
+      // Preparar headers para la petición al backend
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      
+      // Si hay token, pasarlo al backend
+      if (authHeader) {
+        headers['Authorization'] = authHeader;
+      }
+      
+      const resp = await fetch(`${base}/api/estadisticas`, {
+        cache: 'no-store',
+        headers,
+      });
+      
       if (!resp.ok) {
         const text = await resp.text();
         return NextResponse.json({ error: 'Error al obtener estadísticas', details: text }, { status: resp.status });
