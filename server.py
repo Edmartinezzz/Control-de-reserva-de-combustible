@@ -1009,7 +1009,13 @@ def crear_agendamiento():
         subcliente_id = data.get('subcliente_id')
         fecha_agendada = data.get('fecha_agendada')
         
-        if not cliente_id or not litros or not fecha_agendada:
+        # Si no se proporciona fecha_agendada, usar mañana por defecto
+        if not fecha_agendada:
+            from datetime import datetime, timedelta
+            mañana = datetime.now() + timedelta(days=1)
+            fecha_agendada = mañana.strftime('%Y-%m-%d')
+        
+        if not cliente_id or not litros:
             return jsonify({'error': 'Faltan datos requeridos'}), 400
         
         # Insertar agendamiento
