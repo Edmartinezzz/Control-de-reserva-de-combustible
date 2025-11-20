@@ -345,6 +345,27 @@ def obtener_cliente(cliente_id):
     
     return jsonify(dict(cliente))
 
+@app.route('/api/clientes/telefono/<telefono>', methods=['GET'])
+def obtener_cliente_por_telefono(telefono):
+    db = get_db()
+    cursor = db.cursor()
+    
+    cursor.execute('''
+        SELECT c.*, 
+               (SELECT SUM(litros) FROM retiros 
+                WHERE cliente_id = c.id 
+                AND date('now', 'start of month') <= date(fecha) 
+                AND date(fecha) <= date('now', 'start of month', '+1 month', '-1 day')) as litros_retirados_mes
+        FROM clientes c 
+        WHERE c.telefono = ? AND c.activo = 1
+    ''', (telefono,))
+    
+    cliente = cursor.fetchone()
+    if not cliente:
+        return jsonify({'error': 'Cliente no encontrado'}), 404
+    
+    return jsonify(dict(cliente))
+
 @app.route('/api/clientes', methods=['POST'])
 @token_required
 def crear_cliente():
