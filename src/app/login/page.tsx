@@ -20,7 +20,7 @@ export default function Login() {
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!usuario || !contrasena) {
       setError('Por favor ingrese usuario y contraseña');
       return;
@@ -31,9 +31,22 @@ export default function Login() {
       setLoading(true);
       await login(usuario, contrasena);
       router.push('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al iniciar sesión:', error);
-      setError('Usuario o contraseña incorrectos');
+      let message = 'Error al iniciar sesión';
+
+      if (error.response) {
+        // Server responded with a status code outside 2xx range
+        message = error.response.data?.error || `Error del servidor: ${error.response.status}`;
+      } else if (error.request) {
+        // Request was made but no response received
+        message = 'No se recibió respuesta del servidor. Verifique su conexión.';
+      } else {
+        // Something happened in setting up the request
+        message = error.message || message;
+      }
+
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -41,7 +54,7 @@ export default function Login() {
 
   const handleClienteLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Redirigir directamente a la página del cliente
     router.push('/cliente');
   };
@@ -53,14 +66,14 @@ export default function Login() {
           {/* Logo */}
           <div className="flex justify-center mb-8">
             <div className="animate-bounce-in">
-              <img 
-                src={theme === 'dark' ? '/logo-dark.png' : '/logo.png'} 
-                alt="Despacho Gas+ Logo" 
+              <img
+                src={theme === 'dark' ? '/logo-dark.png' : '/logo.png'}
+                alt="Despacho Gas+ Logo"
                 className="h-32 w-auto transition-opacity duration-300"
               />
             </div>
           </div>
-          
+
           <p className="text-center text-sm font-medium text-gray-600 dark:text-gray-400 mb-6">
             Sistema de Gestión de Combustible
           </p>
@@ -68,22 +81,21 @@ export default function Login() {
             {esAdmin ? 'Iniciar sesión' : 'Consulta de Usuario'}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            {esAdmin 
-              ? 'Ingrese sus credenciales de administrador' 
+            {esAdmin
+              ? 'Ingrese sus credenciales de administrador'
               : 'Ingrese su número de teléfono para ver su saldo'}
           </p>
         </div>
 
         {/* Selector de tipo de usuario */}
-        <div className="flex rounded-md shadow-sm animate-scale-in" style={{animationDelay: '0.2s'}}>
+        <div className="flex rounded-md shadow-sm animate-scale-in" style={{ animationDelay: '0.2s' }}>
           <button
             type="button"
             onClick={() => setEsAdmin(true)}
-            className={`flex-1 py-2 px-4 text-sm font-medium rounded-l-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:z-10 transition-all duration-200 hover:scale-105 active:scale-95 transform ${
-              esAdmin 
-                ? 'bg-red-600 text-white' 
+            className={`flex-1 py-2 px-4 text-sm font-medium rounded-l-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:z-10 transition-all duration-200 hover:scale-105 active:scale-95 transform ${esAdmin
+                ? 'bg-red-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600'
-            }`}
+              }`}
           >
             <div className="flex items-center justify-center">
               <LockClosedIcon className="h-5 w-5 mr-2" />
@@ -93,11 +105,10 @@ export default function Login() {
           <button
             type="button"
             onClick={() => setEsAdmin(false)}
-            className={`flex-1 py-2 px-4 text-sm font-medium rounded-r-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:z-10 transition-all duration-200 hover:scale-105 active:scale-95 transform ${
-              !esAdmin 
-                ? 'bg-red-600 text-white' 
+            className={`flex-1 py-2 px-4 text-sm font-medium rounded-r-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:z-10 transition-all duration-200 hover:scale-105 active:scale-95 transform ${!esAdmin
+                ? 'bg-red-600 text-white'
                 : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600'
-            }`}
+              }`}
           >
             <div className="flex items-center justify-center">
               <UserCircleIcon className="h-5 w-5 mr-2" />

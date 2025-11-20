@@ -11,14 +11,27 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-const allowedOrigins = (process.env.FRONTEND_ORIGINS || 'http://localhost:3000,http://localhost:3001')
+const allowedOrigins = (process.env.FRONTEND_ORIGINS || process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001')
   .split(',')
   .map(origin => origin.trim())
   .filter(Boolean);
 
+console.log('Allowed Origins:', allowedOrigins);
+
 app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      console.log('Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 
@@ -75,62 +88,62 @@ async function initDB() {
   } catch (e) {
     // La columna ya existe
   }
-  
+
   try {
     await db.run('ALTER TABLE clientes ADD COLUMN exonerado BOOLEAN DEFAULT 0');
   } catch (e) {
     // La columna ya existe
   }
-  
+
   try {
     await db.run('ALTER TABLE clientes ADD COLUMN huella BOOLEAN DEFAULT 0');
   } catch (e) {
     // La columna ya existe
   }
-  
+
   try {
     await db.run('ALTER TABLE clientes ADD COLUMN rif TEXT');
   } catch (e) {
     // La columna ya existe
   }
-  
+
   try {
     await db.run('ALTER TABLE clientes ADD COLUMN placa TEXT');
   } catch (e) {
     // La columna ya existe
   }
-  
+
   // Agregar columnas para litros separados por tipo de combustible
   try {
     await db.run('ALTER TABLE clientes ADD COLUMN litros_mes_gasolina REAL DEFAULT 0');
   } catch (e) {
     // La columna ya existe
   }
-  
+
   try {
     await db.run('ALTER TABLE clientes ADD COLUMN litros_mes_gasoil REAL DEFAULT 0');
   } catch (e) {
     // La columna ya existe
   }
-  
+
   try {
     await db.run('ALTER TABLE clientes ADD COLUMN litros_disponibles_gasolina REAL DEFAULT 0');
   } catch (e) {
     // La columna ya existe
   }
-  
+
   try {
     await db.run('ALTER TABLE clientes ADD COLUMN litros_disponibles_gasoil REAL DEFAULT 0');
   } catch (e) {
     // La columna ya existe
   }
-  
+
   try {
     await db.run('ALTER TABLE inventario ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
   } catch (e) {
     // La columna ya existe
   }
-  
+
   // Agregar columna tipo_combustible a retiros si no existe
   try {
     await db.run('ALTER TABLE retiros ADD COLUMN tipo_combustible TEXT DEFAULT "gasoil"');
@@ -243,11 +256,12 @@ async function initDB() {
   `);
 
   // Crear o actualizar usuario administrador
-  const hashedPassword = await bcrypt.hash('1230', 10);
-  
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
   // Verificar si el usuario admin ya existe
   const adminExists = await db.get('SELECT * FROM usuarios WHERE usuario = ?', ['admin']);
-  
+
   if (!adminExists) {
     await db.run(
       'INSERT INTO usuarios (usuario, contrasena, nombre, es_admin) VALUES (?, ?, ?, ?)',
@@ -261,7 +275,7 @@ async function initDB() {
     );
     console.log('Usuario administrador actualizado');
   }
-  
+
   // Inicializar inventario si no existe
   const gasoilExists = await db.get('SELECT * FROM inventario WHERE tipo_combustible = ?', ['gasoil']);
   if (!gasoilExists) {
@@ -271,7 +285,7 @@ async function initDB() {
     );
     console.log('Inventario de gasoil inicializado');
   }
-  
+
   const gasolinaExists = await db.get('SELECT * FROM inventario WHERE tipo_combustible = ?', ['gasolina']);
   if (!gasolinaExists) {
     await db.run(
@@ -280,21 +294,21 @@ async function initDB() {
     );
     console.log('Inventario de gasolina inicializado');
   }
-  
+
   // Inicializar contador de tickets si no existe
   const counterExists = await db.get('SELECT * FROM ticket_counter WHERE id = 1');
   if (!counterExists) {
     await db.run("INSERT INTO ticket_counter (id, current_number, last_reset_date) VALUES (1, 0, date('now'))");
     console.log('Contador de tickets inicializado');
   }
-  
+
   // Inicializar configuración del sistema si no existe
   const configExists = await db.get('SELECT * FROM sistema_config WHERE id = 1');
   if (!configExists) {
     await db.run('INSERT INTO sistema_config (id, retiros_bloqueados) VALUES (1, 0)');
     console.log('Configuración del sistema inicializada');
   }
-  
+
   // Agregar columna codigo_ticket a retiros si no existe
   try {
     await db.run('ALTER TABLE retiros ADD COLUMN codigo_ticket INTEGER');
@@ -302,18 +316,18 @@ async function initDB() {
   } catch (e) {
     // La columna ya existe
   }
-  
+
   // Agregar columna last_reset_date a ticket_counter si no existe
   try {
     // Verificar si la columna existe
     const tableInfo = await db.all("PRAGMA table_info(ticket_counter)");
     const hasLastResetDate = tableInfo.some(col => col.name === 'last_reset_date');
-    
+
     if (!hasLastResetDate) {
       // Agregar columna sin valor por defecto
       await db.run("ALTER TABLE ticket_counter ADD COLUMN last_reset_date TEXT");
       console.log('✅ Columna last_reset_date agregada a ticket_counter');
-      
+
       // Actualizar el registro existente con la fecha actual
       await db.run("UPDATE ticket_counter SET last_reset_date = date('now') WHERE id = 1");
       console.log('✅ Fecha inicial establecida en ticket_counter');
@@ -350,7 +364,7 @@ async function initDB() {
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  
+
   if (!token) return res.sendStatus(401);
 
   jwt.verify(token, process.env.JWT_SECRET || 'tu_clave_secreta', (err, user) => {
@@ -364,7 +378,7 @@ const authenticateToken = (req, res, next) => {
 app.get('/api/clientes/cedula/:cedula', async (req, res) => {
   try {
     const { cedula } = req.params;
-    
+
     const cliente = await db.get(
       'SELECT id, nombre, telefono, cedula, litros_mes, litros_disponibles, categoria, subcategoria, exonerado, huella FROM clientes WHERE cedula = ? AND activo = 1',
       [cedula]
@@ -385,7 +399,7 @@ app.get('/api/clientes/cedula/:cedula', async (req, res) => {
 app.get('/api/retiros/cliente/:clienteId', async (req, res) => {
   try {
     const { clienteId } = req.params;
-    
+
     const retiros = await db.all(
       `SELECT r.id, r.litros, r.fecha, r.tipo_combustible 
        FROM retiros r 
@@ -405,7 +419,7 @@ app.get('/api/retiros/cliente/:clienteId', async (req, res) => {
 app.get('/api/clientes/cedula/:cedula', async (req, res) => {
   try {
     const { cedula } = req.params;
-    
+
     const cliente = await db.get(
       'SELECT id, nombre, telefono, cedula, litros_mes, litros_disponibles, categoria, subcategoria, exonerado, huella FROM clientes WHERE cedula = ? AND activo = 1',
       [cedula]
@@ -426,13 +440,13 @@ app.get('/api/clientes/cedula/:cedula', async (req, res) => {
 app.post('/api/login', async (req, res) => {
   try {
     const { usuario, contrasena } = req.body;
-    
+
     if (!usuario || !contrasena) {
       return res.status(400).json({ error: 'Se requieren usuario y contraseña' });
     }
 
     const user = await db.get('SELECT * FROM usuarios WHERE usuario = ?', [usuario]);
-    
+
     if (!user || !(await bcrypt.compare(contrasena, user.contrasena))) {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
@@ -480,11 +494,11 @@ app.post('/api/clientes/login', async (req, res) => {
 
     // Generar token JWT
     const token = jwt.sign(
-      { 
-        id: cliente.id, 
+      {
+        id: cliente.id,
         nombre: cliente.nombre,
         cedula: cliente.cedula,
-        tipo: 'cliente' 
+        tipo: 'cliente'
       },
       process.env.JWT_SECRET || 'tu_clave_secreta',
       { expiresIn: '8h' }
@@ -523,9 +537,9 @@ app.get('/api/dashboard', authenticateToken, (req, res) => {
 // Registrar nuevo cliente (requiere autenticación)
 app.post('/api/clientes', async (req, res) => {
   try {
-    const { 
-      nombre, 
-      telefono, 
+    const {
+      nombre,
+      telefono,
       cedula,
       rif = null,
       placa = null,
@@ -542,11 +556,11 @@ app.post('/api/clientes', async (req, res) => {
     if (!nombre || !telefono || !cedula) {
       return res.status(400).json({ error: 'Nombre, teléfono y cédula son requeridos' });
     }
-    
+
     // Manejar litros: usar los nuevos campos si están disponibles, sino usar el campo legacy
     let gasolinaLitros = 0;
     let gasoilLitros = 0;
-    
+
     if (litros_mes_gasolina !== undefined && litros_mes_gasoil !== undefined) {
       gasolinaLitros = Number(litros_mes_gasolina) || 0;
       gasoilLitros = Number(litros_mes_gasoil) || 0;
@@ -555,12 +569,12 @@ app.post('/api/clientes', async (req, res) => {
       gasolinaLitros = Number(litros_mes) || 0;
       gasoilLitros = 0;
     }
-    
+
     // Validar que al menos uno tenga litros
     if (gasolinaLitros === 0 && gasoilLitros === 0) {
       return res.status(400).json({ error: 'Debe asignar litros a al menos un tipo de combustible' });
     }
-    
+
     // Validar categoría
     const categoriasValidas = [
       'Gobernación',
@@ -569,7 +583,7 @@ app.post('/api/clientes', async (req, res) => {
       'Categorias y Subcategorias',
       'Apoyos'
     ];
-    
+
     if (categoria && !categoriasValidas.includes(categoria)) {
       return res.status(400).json({ error: 'Categoría no válida' });
     }
@@ -597,9 +611,9 @@ app.post('/api/clientes', async (req, res) => {
                            litros_mes, litros_disponibles, litros_mes_gasolina, litros_mes_gasoil, 
                            litros_disponibles_gasolina, litros_disponibles_gasoil, exonerado, huella, activo)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-      [nombre, telefono, cedula, rif, placa, categoria, subcategoria, 
-       totalLitros, totalLitros, gasolinaLitros, gasoilLitros, 
-       gasolinaLitros, gasoilLitros, exonerado ? 1 : 0, huella ? 1 : 0]
+      [nombre, telefono, cedula, rif, placa, categoria, subcategoria,
+        totalLitros, totalLitros, gasolinaLitros, gasoilLitros,
+        gasolinaLitros, gasoilLitros, exonerado ? 1 : 0, huella ? 1 : 0]
     );
 
     // Crear usuario para el cliente (el teléfono será el usuario y contraseña)
@@ -651,13 +665,13 @@ app.get('/api/clientes/simple', async (req, res) => {
 app.get('/api/clientes/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const cliente = await db.get('SELECT * FROM clientes WHERE id = ?', [id]);
-    
+
     if (!cliente) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
-    
+
     res.json(cliente);
   } catch (error) {
     console.error('Error al obtener cliente:', error);
@@ -891,10 +905,10 @@ app.put('/api/subclientes/:id', authenticateToken, async (req, res) => {
 app.put('/api/clientes/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { 
-      nombre, 
-      telefono, 
-      cedula, 
+    const {
+      nombre,
+      telefono,
+      cedula,
       litros_mes, // Para compatibilidad
       litros_mes_gasolina,
       litros_mes_gasoil,
@@ -908,11 +922,11 @@ app.put('/api/clientes/:id', authenticateToken, async (req, res) => {
     if (!nombre || !telefono || !cedula) {
       return res.status(400).json({ error: 'Nombre, teléfono y cédula son requeridos' });
     }
-    
+
     // Manejar litros: usar los nuevos campos si están disponibles, sino usar el campo legacy
     let gasolinaLitros = 0;
     let gasoilLitros = 0;
-    
+
     if (litros_mes_gasolina !== undefined && litros_mes_gasoil !== undefined) {
       gasolinaLitros = Number(litros_mes_gasolina) || 0;
       gasoilLitros = Number(litros_mes_gasoil) || 0;
@@ -921,12 +935,12 @@ app.put('/api/clientes/:id', authenticateToken, async (req, res) => {
       gasolinaLitros = Number(litros_mes) || 0;
       gasoilLitros = 0;
     }
-    
+
     // Validar que al menos uno tenga litros
     if (gasolinaLitros === 0 && gasoilLitros === 0) {
       return res.status(400).json({ error: 'Debe asignar litros a al menos un tipo de combustible' });
     }
-    
+
     // Validar categoría
     const categoriasValidas = [
       'Gobernación',
@@ -935,7 +949,7 @@ app.put('/api/clientes/:id', authenticateToken, async (req, res) => {
       'Categorias y Subcategorias',
       'Apoyos'
     ];
-    
+
     if (categoria && !categoriasValidas.includes(categoria)) {
       return res.status(400).json({ error: 'Categoría no válida' });
     }
@@ -986,52 +1000,52 @@ app.put('/api/clientes/:id', authenticateToken, async (req, res) => {
 app.post('/api/retiros', async (req, res) => {
   try {
     const { cliente_id, litros, tipo_combustible } = req.body;
-    
+
     // Validaciones iniciales
     if (!tipo_combustible) {
-      return res.status(400).json({ 
-        error: 'Debe especificar el tipo de combustible (gasoil o gasolina)' 
+      return res.status(400).json({
+        error: 'Debe especificar el tipo de combustible (gasoil o gasolina)'
       });
     }
-    
+
     const tipoCombustible = tipo_combustible.toLowerCase();
     if (!['gasoil', 'gasolina'].includes(tipoCombustible)) {
-      return res.status(400).json({ 
-        error: 'Tipo de combustible no válido. Debe ser "gasoil" o "gasolina"' 
+      return res.status(400).json({
+        error: 'Tipo de combustible no válido. Debe ser "gasoil" o "gasolina"'
       });
     }
-    
+
     // Verificar que hay suficiente inventario para el tipo de combustible
     const inventario = await db.get(
       'SELECT id, litros_disponibles FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1',
       [tipoCombustible]
     );
-    
+
     if (!inventario) {
-      return res.status(400).json({ 
-        error: `No hay inventario registrado de ${tipoCombustible}. Por favor, agregue inventario primero.` 
+      return res.status(400).json({
+        error: `No hay inventario registrado de ${tipoCombustible}. Por favor, agregue inventario primero.`
       });
     }
-    
+
     // Verificar si hay litros disponibles en el inventario
     if (inventario.litros_disponibles <= 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'No hay disponibilidad de combustible',
         detalles: `El inventario de ${tipoCombustible} está agotado. Por favor, recargue el inventario.`
       });
     }
-    
+
     if (inventario.litros_disponibles < litros) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'No hay disponibilidad de combustible',
-        detalles: `Solo hay ${inventario.litros_disponibles.toFixed(2)} L disponibles de ${tipoCombustible}. Solicitado: ${litros} L` 
+        detalles: `Solo hay ${inventario.litros_disponibles.toFixed(2)} L disponibles de ${tipoCombustible}. Solicitado: ${litros} L`
       });
     }
 
     // Verificar si los retiros están bloqueados
     const config = await db.get('SELECT retiros_bloqueados FROM sistema_config WHERE id = 1');
     if (config && config.retiros_bloqueados === 1) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'Sistema de retiros bloqueado',
         message: 'Los retiros están temporalmente bloqueados por el administrador. Por favor, intente más tarde.'
       });
@@ -1056,8 +1070,8 @@ app.post('/api/retiros', async (req, res) => {
     }
 
     if (litros > cliente.litros_disponibles) {
-      return res.status(400).json({ 
-        error: `No hay suficientes litros disponibles. Disponible: ${cliente.litros_disponibles}` 
+      return res.status(400).json({
+        error: `No hay suficientes litros disponibles. Disponible: ${cliente.litros_disponibles}`
       });
     }
 
@@ -1071,11 +1085,11 @@ app.post('/api/retiros', async (req, res) => {
       counter = await db.get('SELECT current_number FROM ticket_counter WHERE id = 1');
       counter.last_reset_date = null;
     }
-    
+
     const today = getLocalDate(); // Obtener fecha local del computador
-    
+
     let nextNumber;
-    
+
     // Verificar si es un nuevo día y reiniciar el contador
     if (counter.last_reset_date && counter.last_reset_date !== today) {
       nextNumber = 1; // Reiniciar al primer número del día
@@ -1100,14 +1114,14 @@ app.post('/api/retiros', async (req, res) => {
         [nextNumber]
       );
     }
-    
+
     // Registrar el retiro con código de ticket
     const usuario_id = req.user?.id || 1; // Usar ID 1 (admin) si no hay usuario autenticado
     const resultRetiro = await db.run(
       'INSERT INTO retiros (cliente_id, usuario_id, tipo_combustible, litros, codigo_ticket) VALUES (?, ?, ?, ?, ?)',
       [cliente_id, usuario_id, tipoCombustible, litros, nextNumber]
     );
-    
+
     // Actualizar el inventario restando los litros retirados del registro más reciente
     const nuevosLitrosDisponibles = inventario.litros_disponibles - litros;
     await db.run(
@@ -1140,7 +1154,7 @@ app.post('/api/retiros', async (req, res) => {
       litros: req.body.litros,
       tipo_combustible: req.body.tipo_combustible
     });
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error interno del servidor',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -1197,7 +1211,7 @@ app.get('/api/retiros', async (req, res) => {
 app.get('/api/agendamientos/cliente/:clienteId', async (req, res) => {
   try {
     const { clienteId } = req.params;
-    
+
     const agendamientos = await db.all(
       `SELECT 
          a.id,
@@ -1218,7 +1232,7 @@ app.get('/api/agendamientos/cliente/:clienteId', async (req, res) => {
        ORDER BY a.fecha_agendada DESC, a.fecha_creacion DESC`,
       [clienteId]
     );
-    
+
     res.json(agendamientos);
   } catch (error) {
     console.error('Error al obtener agendamientos del cliente:', error);
@@ -1230,7 +1244,7 @@ app.get('/api/agendamientos/cliente/:clienteId', async (req, res) => {
 app.get('/api/agendamientos', async (req, res) => {
   try {
     const { fecha, estado } = req.query;
-    
+
     let query = `
       SELECT 
         a.id, 
@@ -1252,28 +1266,28 @@ app.get('/api/agendamientos', async (req, res) => {
       JOIN clientes c ON a.cliente_id = c.id
       LEFT JOIN subclientes s ON a.subcliente_id = s.id
     `;
-    
+
     const params = [];
     const conditions = [];
-    
+
     if (fecha) {
       conditions.push('a.fecha_agendada = ?');
       params.push(fecha);
     }
-    
+
     if (estado) {
       conditions.push('a.estado = ?');
       params.push(estado);
     }
-    
+
     if (conditions.length > 0) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
-    
+
     query += ' ORDER BY a.fecha_agendada ASC, a.fecha_creacion ASC';
-    
+
     const agendamientos = await db.all(query, params);
-    
+
     res.json(agendamientos);
   } catch (error) {
     console.error('Error al obtener agendamientos:', error);
@@ -1285,7 +1299,7 @@ app.get('/api/agendamientos', async (req, res) => {
 app.post('/api/agendamientos/:id/procesar', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Obtener el agendamiento
     const agendamiento = await db.get(
       `SELECT a.*, c.litros_disponibles, c.nombre as cliente_nombre
@@ -1294,34 +1308,34 @@ app.post('/api/agendamientos/:id/procesar', authenticateToken, async (req, res) 
        WHERE a.id = ? AND a.estado = 'pendiente'`,
       [id]
     );
-    
+
     if (!agendamiento) {
       return res.status(404).json({ error: 'Agendamiento no encontrado o ya procesado' });
     }
-    
+
     // Verificar que el cliente aún tenga suficientes litros
     if (agendamiento.litros > agendamiento.litros_disponibles) {
-      return res.status(400).json({ 
-        error: `El cliente no tiene suficientes litros disponibles. Disponible: ${agendamiento.litros_disponibles}` 
+      return res.status(400).json({
+        error: `El cliente no tiene suficientes litros disponibles. Disponible: ${agendamiento.litros_disponibles}`
       });
     }
-    
+
     // Verificar inventario disponible
     const inventario = await db.get(
       'SELECT id, litros_disponibles FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1',
       [agendamiento.tipo_combustible]
     );
-    
+
     if (!inventario || inventario.litros_disponibles < agendamiento.litros) {
-      return res.status(400).json({ 
-        error: 'No hay suficiente inventario disponible para procesar este agendamiento' 
+      return res.status(400).json({
+        error: 'No hay suficiente inventario disponible para procesar este agendamiento'
       });
     }
-    
+
     // Obtener y actualizar contador de tickets
     const counter = await db.get('SELECT current_number, last_reset_date FROM ticket_counter WHERE id = 1');
     const today = getLocalDate();
-    
+
     let nextNumber;
     if (counter.last_reset_date && counter.last_reset_date !== today) {
       nextNumber = 1;
@@ -1336,32 +1350,32 @@ app.post('/api/agendamientos/:id/procesar', authenticateToken, async (req, res) 
         [nextNumber]
       );
     }
-    
+
     // Crear el retiro
     const resultRetiro = await db.run(
       'INSERT INTO retiros (cliente_id, usuario_id, tipo_combustible, litros, codigo_ticket) VALUES (?, ?, ?, ?, ?)',
       [agendamiento.cliente_id, req.user.id, agendamiento.tipo_combustible, agendamiento.litros, nextNumber]
     );
-    
+
     // Actualizar inventario
     const nuevosLitrosDisponibles = inventario.litros_disponibles - agendamiento.litros;
     await db.run(
       'UPDATE inventario SET litros_disponibles = ? WHERE id = ?',
       [nuevosLitrosDisponibles, inventario.id]
     );
-    
+
     // Actualizar litros del cliente
     await db.run(
       'UPDATE clientes SET litros_disponibles = litros_disponibles - ? WHERE id = ?',
       [agendamiento.litros, agendamiento.cliente_id]
     );
-    
+
     // Marcar agendamiento como procesado
     await db.run(
       'UPDATE agendamientos SET estado = "procesado", procesado_por = ?, fecha_procesado = CURRENT_TIMESTAMP WHERE id = ?',
       [req.user.id, id]
     );
-    
+
     res.json({
       message: 'Agendamiento procesado exitosamente',
       retiroId: resultRetiro.lastID,
@@ -1381,22 +1395,22 @@ app.delete('/api/agendamientos/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { cliente_id } = req.query; // Para validar que el cliente puede cancelar su propio agendamiento
-    
+
     let query = 'UPDATE agendamientos SET estado = "cancelado" WHERE id = ? AND estado = "pendiente"';
     let params = [id];
-    
+
     // Si se proporciona cliente_id, validar que sea el dueño del agendamiento
     if (cliente_id) {
       query += ' AND cliente_id = ?';
       params.push(cliente_id);
     }
-    
+
     const result = await db.run(query, params);
-    
+
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Agendamiento no encontrado o no se puede cancelar' });
     }
-    
+
     res.json({ message: 'Agendamiento cancelado exitosamente' });
   } catch (error) {
     console.error('Error al cancelar agendamiento:', error);
@@ -1558,7 +1572,7 @@ app.get('/api/clientes/lista', async (req, res) => {
 app.get('/api/clientes/:clienteId/tickets', async (req, res) => {
   try {
     const { clienteId } = req.params;
-    
+
     const tickets = await db.all(`
       SELECT 
         r.id,
@@ -1626,17 +1640,17 @@ app.get('/api/inventario', async (req, res) => {
       'SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1',
       ['gasoil']
     );
-    
+
     const gasolina = await db.get(
       'SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1',
       ['gasolina']
     );
-    
+
     // Devolver un array con ambos tipos
     const inventario = [];
     if (gasoil) inventario.push(gasoil);
     if (gasolina) inventario.push(gasolina);
-    
+
     res.json(inventario);
   } catch (error) {
     console.error('Error al obtener inventario:', error);
@@ -1663,8 +1677,8 @@ app.get('/api/inventario/historial', async (req, res) => {
 app.get('/api/sistema/bloqueo', async (req, res) => {
   try {
     const config = await db.get('SELECT retiros_bloqueados FROM sistema_config WHERE id = 1');
-    res.json({ 
-      bloqueado: config?.retiros_bloqueados === 1 || false 
+    res.json({
+      bloqueado: config?.retiros_bloqueados === 1 || false
     });
   } catch (error) {
     console.error('Error al obtener estado de bloqueo:', error);
@@ -1676,16 +1690,16 @@ app.get('/api/sistema/bloqueo', async (req, res) => {
 app.post('/api/sistema/bloqueo', authenticateToken, async (req, res) => {
   try {
     const { bloqueado } = req.body;
-    
+
     await db.run(
       'UPDATE sistema_config SET retiros_bloqueados = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = 1',
       [bloqueado ? 1 : 0]
     );
-    
+
     console.log(`Sistema de retiros ${bloqueado ? 'BLOQUEADO' : 'DESBLOQUEADO'} por admin`);
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       bloqueado,
       message: bloqueado ? 'Retiros bloqueados exitosamente' : 'Retiros desbloqueados exitosamente'
     });
@@ -1702,9 +1716,9 @@ app.post('/api/inventario', authenticateToken, async (req, res) => {
 
     // Normalizar el tipo de combustible
     tipo_combustible = String(tipo_combustible).toLowerCase().trim();
-    
+
     if (!['gasoil', 'gasolina'].includes(tipo_combustible)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Tipo de combustible inválido. Use "gasoil" o "gasolina"',
         received: req.body.tipo_combustible,
         normalized: tipo_combustible
@@ -1720,7 +1734,7 @@ app.post('/api/inventario', authenticateToken, async (req, res) => {
       'SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1',
       [tipo_combustible]
     );
-    
+
     const litros_disponibles = (inventarioActual?.litros_disponibles || 0) + parseFloat(litros_ingresados);
 
     // Insertar nuevo registro de inventario
@@ -1746,33 +1760,33 @@ app.post('/api/inventario', authenticateToken, async (req, res) => {
 app.post('/api/inventario/reset', authenticateToken, async (req, res) => {
   try {
     const usuario_id = req.user.id;
-    
+
     // Obtener el último registro de gasoil
     const gasoilRecord = await db.get(
       'SELECT id FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1',
       ['gasoil']
     );
-    
+
     if (gasoilRecord) {
       await db.run(
         'UPDATE inventario SET litros_disponibles = 0 WHERE id = ?',
         [gasoilRecord.id]
       );
     }
-    
+
     // Obtener el último registro de gasolina
     const gasolinaRecord = await db.get(
       'SELECT id FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1',
       ['gasolina']
     );
-    
+
     if (gasolinaRecord) {
       await db.run(
         'UPDATE inventario SET litros_disponibles = 0 WHERE id = ?',
         [gasolinaRecord.id]
       );
     }
-    
+
     res.json({
       message: 'Inventario reseteado a 0 litros',
       gasoil: 0,
@@ -1781,7 +1795,7 @@ app.post('/api/inventario/reset', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error al resetear inventario:', error);
     console.error('Detalles:', error.message, error.stack);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error al resetear el inventario',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -1793,15 +1807,15 @@ app.post('/api/admin/recargar-litros-manual', authenticateToken, async (req, res
   try {
     console.log('🔧 Recarga manual solicitada por:', req.user.usuario);
     await recargarLitrosDiarios();
-    res.json({ 
-      success: true, 
-      message: 'Recarga manual ejecutada exitosamente' 
+    res.json({
+      success: true,
+      message: 'Recarga manual ejecutada exitosamente'
     });
   } catch (error) {
     console.error('Error en recarga manual:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Error al ejecutar recarga manual',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -1850,24 +1864,24 @@ async function recargarLitrosDiarios() {
   try {
     const fecha = new Date().toISOString();
     console.log(`[${fecha}] 🌙 Iniciando recarga automática a medianoche - RESTAURANDO LITROS COMPLETOS...`);
-    
+
     // Obtener todos los clientes activos
     const clientes = await db.all('SELECT * FROM clientes WHERE activo = 1');
-    
+
     let clientesRecargados = 0;
-    
+
     for (const cliente of clientes) {
       const totalLitros = cliente.litros_mes || 0;
       const gasolinaLitros = cliente.litros_mes_gasolina || cliente.litros_mes || 0;
       const gasoilLitros = cliente.litros_mes_gasoil || 0;
-      
+
       if (totalLitros > 0 || gasolinaLitros > 0 || gasoilLitros > 0) {
         // RESTAURAR LITROS COMPLETOS (tanto legacy como campos separados)
         await db.run(
           'UPDATE clientes SET litros_disponibles = ?, litros_disponibles_gasolina = ?, litros_disponibles_gasoil = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
           [totalLitros, gasolinaLitros, gasoilLitros, cliente.id]
         );
-        
+
         clientesRecargados++;
         console.log(`  ✓ Cliente ${cliente.nombre} (ID: ${cliente.id}): RESTAURADO → ${gasolinaLitros}L gasolina + ${gasoilLitros}L gasoil (Total: ${totalLitros}L)`);
       }
@@ -1908,7 +1922,7 @@ async function procesarAgendamientosDelDia() {
   try {
     const hoy = getLocalDate();
     console.log(`🗓️ Procesando agendamientos para el día: ${hoy}`);
-    
+
     // Obtener agendamientos pendientes para hoy
     const agendamientos = await db.all(
       `SELECT a.*, c.nombre as cliente_nombre, c.litros_disponibles
@@ -1918,17 +1932,17 @@ async function procesarAgendamientosDelDia() {
        ORDER BY a.fecha_creacion ASC`,
       [hoy]
     );
-    
+
     if (agendamientos.length === 0) {
       console.log('📋 No hay agendamientos pendientes para procesar hoy');
       return;
     }
-    
+
     console.log(`📋 Encontrados ${agendamientos.length} agendamientos para procesar`);
-    
+
     let procesados = 0;
     let errores = 0;
-    
+
     for (const agendamiento of agendamientos) {
       try {
         // Verificar que el cliente aún tenga suficientes litros
@@ -1937,22 +1951,22 @@ async function procesarAgendamientosDelDia() {
           errores++;
           continue;
         }
-        
+
         // Verificar inventario disponible
         const inventario = await db.get(
           'SELECT id, litros_disponibles FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1',
           [agendamiento.tipo_combustible]
         );
-        
+
         if (!inventario || inventario.litros_disponibles < agendamiento.litros) {
           console.log(`⚠️ No hay suficiente inventario de ${agendamiento.tipo_combustible} (${inventario?.litros_disponibles || 0}/${agendamiento.litros})`);
           errores++;
           continue;
         }
-        
+
         // Obtener y actualizar contador de tickets
         const counter = await db.get('SELECT current_number, last_reset_date FROM ticket_counter WHERE id = 1');
-        
+
         let nextNumber;
         if (counter.last_reset_date && counter.last_reset_date !== hoy) {
           nextNumber = 1;
@@ -1967,39 +1981,39 @@ async function procesarAgendamientosDelDia() {
             [nextNumber]
           );
         }
-        
+
         // Crear el retiro
         const resultRetiro = await db.run(
           'INSERT INTO retiros (cliente_id, usuario_id, tipo_combustible, litros, codigo_ticket) VALUES (?, ?, ?, ?, ?)',
           [agendamiento.cliente_id, 1, agendamiento.tipo_combustible, agendamiento.litros, nextNumber] // usuario_id = 1 (admin automático)
         );
-        
+
         // Actualizar inventario (restar del inventario físico)
         const nuevosLitrosDisponibles = inventario.litros_disponibles - agendamiento.litros;
         await db.run(
           'UPDATE inventario SET litros_disponibles = ? WHERE id = ?',
           [nuevosLitrosDisponibles, inventario.id]
         );
-        
+
         // NOTA: Los litros del cliente ya se restaron al agendar, no se vuelven a restar aquí
-        
+
         // Marcar agendamiento como procesado
         await db.run(
           'UPDATE agendamientos SET estado = "procesado", procesado_por = ?, fecha_procesado = CURRENT_TIMESTAMP WHERE id = ?',
           [1, agendamiento.id] // procesado_por = 1 (admin automático)
         );
-        
+
         console.log(`✅ Procesado: ${agendamiento.cliente_nombre} - ${agendamiento.litros}L ${agendamiento.tipo_combustible} - Ticket: ${nextNumber}`);
         procesados++;
-        
+
       } catch (error) {
         console.error(`❌ Error procesando agendamiento ID ${agendamiento.id}:`, error);
         errores++;
       }
     }
-    
+
     console.log(`📊 Resumen del procesamiento: ${procesados} exitosos, ${errores} errores`);
-    
+
   } catch (error) {
     console.error('❌ Error en procesamiento automático de agendamientos:', error);
   }
@@ -2012,26 +2026,26 @@ app.post('/api/agendamientos', async (req, res) => {
   console.log('🎫 Petición de agendamiento recibida:', req.body);
   try {
     const { cliente_id, tipo_combustible, litros, subcliente_id } = req.body;
-    
+
     // Validaciones básicas
     if (!cliente_id || !tipo_combustible || !litros) {
       return res.status(400).json({ error: 'Faltan datos requeridos' });
     }
-    
+
     if (!['gasoil', 'gasolina'].includes(tipo_combustible)) {
       return res.status(400).json({ error: 'Tipo de combustible inválido' });
     }
-    
+
     if (litros <= 0) {
       return res.status(400).json({ error: 'La cantidad debe ser mayor a cero' });
     }
-    
+
     // Verificar que el cliente existe y está activo
     const cliente = await db.get(
       'SELECT id, nombre, litros_disponibles, litros_disponibles_gasolina, litros_disponibles_gasoil FROM clientes WHERE id = ? AND activo = 1',
       [cliente_id]
     );
-    
+
     if (!cliente) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
     }
@@ -2054,34 +2068,34 @@ app.post('/api/agendamientos', async (req, res) => {
       esSubcliente = true;
     }
 
-    litrosDisponiblesTipo = tipo_combustible === 'gasolina' 
+    litrosDisponiblesTipo = tipo_combustible === 'gasolina'
       ? (cliente.litros_disponibles_gasolina || cliente.litros_disponibles || 0)
       : (cliente.litros_disponibles_gasoil || 0);
 
     if (litros > litrosDisponiblesTipo) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: `No tiene suficientes litros de ${tipo_combustible} disponibles`,
         disponibles: litrosDisponiblesTipo,
         solicitados: litros
       });
     }
-    
+
     // Calcular fecha del día siguiente
     const mañana = new Date();
     mañana.setDate(mañana.getDate() + 1);
     const fechaAgendada = mañana.toISOString().split('T')[0];
-    
+
     console.log(`📅 REAL: Fecha de hoy: ${new Date().toISOString().split('T')[0]}`);
     console.log(`📅 REAL: Fecha de retiro (mañana): ${fechaAgendada}`);
-    
+
     // Verificar inventario disponible
     const inventario = await db.get(
       'SELECT litros_disponibles FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1',
       [tipo_combustible]
     );
-    
+
     if (!inventario || inventario.litros_disponibles < litros) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'No hay suficiente inventario disponible',
         disponible_inventario: inventario?.litros_disponibles || 0,
         solicitado: litros
@@ -2091,17 +2105,17 @@ app.post('/api/agendamientos', async (req, res) => {
     // Verificar límite diario global
     const config = await db.get('SELECT limite_diario_gasolina FROM sistema_config WHERE id = 1');
     const limiteGlobal = config?.limite_diario_gasolina || 2000;
-    
+
     // Obtener litros ya agendados para mañana
     const agendadosHoy = await db.get(
       'SELECT COALESCE(SUM(litros), 0) as total FROM agendamientos WHERE fecha_agendada = ? AND tipo_combustible = ? AND estado = "pendiente"',
       [fechaAgendada, tipo_combustible]
     );
-    
+
     const totalAgendado = agendadosHoy.total + litros;
-    
+
     if (totalAgendado > limiteGlobal) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Límite diario excedido',
         limite: limiteGlobal,
         agendado: agendadosHoy.total,
@@ -2109,20 +2123,20 @@ app.post('/api/agendamientos', async (req, res) => {
         disponible: limiteGlobal - agendadosHoy.total
       });
     }
-    
+
     // Generar ticket
     const counter = await db.get('SELECT current_number FROM ticket_counter WHERE id = 1');
     const nextNumber = ((counter?.current_number || 0) % 200) + 1;
-    
+
     // Actualizar contador
     await db.run('UPDATE ticket_counter SET current_number = ? WHERE id = 1', [nextNumber]);
-    
+
     // Crear agendamiento
     const result = await db.run(
       'INSERT INTO agendamientos (cliente_id, tipo_combustible, litros, fecha_agendada, codigo_ticket, subcliente_id) VALUES (?, ?, ?, ?, ?, ?)',
       [cliente_id, tipo_combustible, litros, fechaAgendada, nextNumber, subcliente_id || null]
     );
-    
+
     // RESTAR LITROS DISPONIBLES SIEMPRE DEL CLIENTE PADRE
     if (tipo_combustible === 'gasolina') {
       await db.run(
@@ -2135,27 +2149,27 @@ app.post('/api/agendamientos', async (req, res) => {
         [litros, litros, cliente_id]
       );
     }
-    
+
     // RESTAR LITROS DEL INVENTARIO INMEDIATAMENTE
     await db.run(
       'UPDATE inventario SET litros_disponibles = litros_disponibles - ? WHERE tipo_combustible = ? AND id = (SELECT MAX(id) FROM inventario WHERE tipo_combustible = ?)',
       [litros, tipo_combustible, tipo_combustible]
     );
-    
+
     console.log(`📦 Inventario actualizado: -${litros}L de ${tipo_combustible}`);
-    
+
     // Actualizar límites diarios
     await db.run(
       'INSERT OR REPLACE INTO limites_diarios (fecha, tipo_combustible, litros_agendados) VALUES (?, ?, COALESCE((SELECT litros_agendados FROM limites_diarios WHERE fecha = ? AND tipo_combustible = ?), 0) + ?)',
       [fechaAgendada, tipo_combustible, fechaAgendada, tipo_combustible, litros]
     );
-    
+
     // Obtener inventario restante después de la actualización
     const inventarioRestante = await db.get(
       'SELECT litros_disponibles FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1',
       [tipo_combustible]
     );
-    
+
     console.log(`✅ Agendamiento creado - Cliente: ${cliente_id}, Ticket: ${nextNumber}, Litros: ${litros}L`);
     console.log(`📦 Inventario restante: ${inventarioRestante?.litros_disponibles || 0}L`);
     console.log(`📤 Enviando respuesta:`, {
@@ -2168,7 +2182,7 @@ app.post('/api/agendamientos', async (req, res) => {
       inventario_restante: inventarioRestante?.litros_disponibles || 0,
       message: 'Agendamiento creado exitosamente'
     });
-    
+
     res.status(201).json({
       id: result.lastID,
       cliente_id,
@@ -2179,7 +2193,7 @@ app.post('/api/agendamientos', async (req, res) => {
       inventario_restante: inventarioRestante?.litros_disponibles || 0,
       message: 'Agendamiento creado exitosamente'
     });
-    
+
   } catch (error) {
     console.error('Error al crear agendamiento:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -2192,7 +2206,7 @@ app.get('/api/inventario/estado', async (req, res) => {
     const inventarios = await db.all(
       'SELECT tipo_combustible, litros_disponibles FROM inventario ORDER BY id DESC'
     );
-    
+
     // Obtener el último registro de cada tipo de combustible
     const estadoInventario = {};
     inventarios.forEach(inv => {
@@ -2200,9 +2214,9 @@ app.get('/api/inventario/estado', async (req, res) => {
         estadoInventario[inv.tipo_combustible] = inv.litros_disponibles;
       }
     });
-    
+
     console.log('📦 Estado del inventario consultado:', estadoInventario);
-    
+
     res.json({
       inventario: estadoInventario,
       disponible: Object.values(estadoInventario).some(litros => litros > 0)
@@ -2217,7 +2231,7 @@ app.get('/api/inventario/estado', async (req, res) => {
 app.get('/api/agendamientos/dia/:fecha', async (req, res) => {
   try {
     const { fecha } = req.params;
-    
+
     const agendamientos = await db.all(`
       SELECT 
         a.id,
@@ -2242,9 +2256,9 @@ app.get('/api/agendamientos/dia/:fecha', async (req, res) => {
       WHERE a.fecha_agendada = ?
       ORDER BY a.codigo_ticket ASC
     `, [fecha]);
-    
+
     res.json(agendamientos);
-    
+
   } catch (error) {
     console.error('Error al obtener agendamientos:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -2255,22 +2269,22 @@ app.get('/api/agendamientos/dia/:fecha', async (req, res) => {
 app.get('/api/sistema/limites', async (req, res) => {
   try {
     const config = await db.get('SELECT limite_diario_gasolina FROM sistema_config WHERE id = 1');
-    
+
     const hoy = new Date().toISOString().split('T')[0];
     const mañana = new Date();
     mañana.setDate(mañana.getDate() + 1);
     const fechaMañana = mañana.toISOString().split('T')[0];
-    
+
     const limitesHoy = await db.get(
       'SELECT litros_agendados, litros_procesados FROM limites_diarios WHERE fecha = ? AND tipo_combustible = "gasolina"',
       [hoy]
     );
-    
+
     const limitesMañana = await db.get(
       'SELECT litros_agendados FROM limites_diarios WHERE fecha = ? AND tipo_combustible = "gasolina"',
       [fechaMañana]
     );
-    
+
     res.json({
       limite_diario: config?.limite_diario_gasolina || 2000,
       hoy: {
@@ -2284,7 +2298,7 @@ app.get('/api/sistema/limites', async (req, res) => {
         disponible: (config?.limite_diario_gasolina || 2000) - (limitesMañana?.litros_agendados || 0)
       }
     });
-    
+
   } catch (error) {
     console.error('Error al obtener límites:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -2295,22 +2309,22 @@ app.get('/api/sistema/limites', async (req, res) => {
 app.put('/api/sistema/limite-diario', authenticateToken, async (req, res) => {
   try {
     const { limite } = req.body;
-    
+
     if (!limite || limite <= 0) {
       return res.status(400).json({ error: 'Límite debe ser mayor a cero' });
     }
-    
+
     await db.run(
       'UPDATE sistema_config SET limite_diario_gasolina = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = 1',
       [limite]
     );
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       limite,
       message: 'Límite diario actualizado exitosamente'
     });
-    
+
   } catch (error) {
     console.error('Error al actualizar límite:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -2319,7 +2333,7 @@ app.put('/api/sistema/limite-diario', authenticateToken, async (req, res) => {
 
 // Endpoint de prueba para verificar conectividad
 app.get('/api/test', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'Servidor funciona correctamente',
     timestamp: new Date().toISOString(),
     endpoints_disponibles: [
@@ -2337,31 +2351,31 @@ app.get('/api/test', (req, res) => {
 app.post('/api/admin/migrar-litros-separados', authenticateToken, async (req, res) => {
   try {
     console.log('🔄 Iniciando migración de litros separados...');
-    
+
     // Obtener todos los clientes
     const clientes = await db.all('SELECT * FROM clientes WHERE activo = 1');
     let clientesMigrados = 0;
-    
+
     for (const cliente of clientes) {
       // Si ya tiene campos separados, no migrar
       if (cliente.litros_mes_gasolina !== null || cliente.litros_mes_gasoil !== null) {
         console.log(`  ⏭️  Cliente ${cliente.nombre}: Ya tiene campos separados`);
         continue;
       }
-      
+
       // Migrar: asignar todos los litros legacy a gasolina
       const litrosMes = cliente.litros_mes || 0;
       const litrosDisponibles = cliente.litros_disponibles || 0;
-      
+
       await db.run(
         'UPDATE clientes SET litros_mes_gasolina = ?, litros_mes_gasoil = 0, litros_disponibles_gasolina = ?, litros_disponibles_gasoil = 0 WHERE id = ?',
         [litrosMes, litrosDisponibles, cliente.id]
       );
-      
+
       clientesMigrados++;
       console.log(`  ✅ Cliente ${cliente.nombre}: Migrado → ${litrosMes}L gasolina, 0L gasoil`);
     }
-    
+
     console.log(`🔄 Migración completada: ${clientesMigrados} clientes migrados`);
     res.json({
       success: true,
@@ -2394,26 +2408,26 @@ app.post('/api/test-agendamiento', async (req, res) => {
   console.log('🧪 TEST: Petición de agendamiento recibida:', req.body);
   try {
     const { cliente_id, tipo_combustible, litros } = req.body;
-    
+
     // Validaciones básicas
     if (!cliente_id || !tipo_combustible || !litros) {
       console.log('❌ TEST: Faltan datos requeridos');
       return res.status(400).json({ error: 'Faltan datos requeridos' });
     }
-    
+
     // Generar ticket de prueba
     const ticketPrueba = Math.floor(Math.random() * 200) + 1;
-    
+
     console.log(`✅ TEST: Ticket generado: ${ticketPrueba}`);
-    
+
     // Calcular fecha del día siguiente para la prueba
     const mañanaPrueba = new Date();
     mañanaPrueba.setDate(mañanaPrueba.getDate() + 1);
     const fechaAgendadaPrueba = mañanaPrueba.toISOString().split('T')[0];
-    
+
     console.log(`📅 TEST: Fecha de hoy: ${new Date().toISOString().split('T')[0]}`);
     console.log(`📅 TEST: Fecha de retiro (mañana): ${fechaAgendadaPrueba}`);
-    
+
     res.status(201).json({
       id: 999,
       cliente_id,
@@ -2423,7 +2437,7 @@ app.post('/api/test-agendamiento', async (req, res) => {
       codigo_ticket: ticketPrueba,
       message: 'TEST: Agendamiento de prueba creado exitosamente'
     });
-    
+
   } catch (error) {
     console.error('❌ TEST: Error:', error);
     res.status(500).json({ error: 'Error en prueba' });
@@ -2434,27 +2448,27 @@ app.post('/api/test-agendamiento', async (req, res) => {
 app.post('/api/admin/add-inventario', async (req, res) => {
   try {
     const { tipo_combustible = 'gasolina', litros = 5000 } = req.body;
-    
+
     // Obtener inventario actual
     const inventarioActual = await db.get(
       'SELECT litros_disponibles FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1',
       [tipo_combustible]
     );
-    
+
     const nuevosLitros = (inventarioActual?.litros_disponibles || 0) + litros;
-    
+
     // Agregar inventario
     await db.run(
       'INSERT INTO inventario (tipo_combustible, litros_ingresados, litros_disponibles, usuario_id, observaciones) VALUES (?, ?, ?, ?, ?)',
       [tipo_combustible, litros, nuevosLitros, 1, 'Inventario para pruebas']
     );
-    
+
     res.json({
       success: true,
       message: `${litros}L de ${tipo_combustible} agregados al inventario`,
       total_disponible: nuevosLitros
     });
-    
+
   } catch (error) {
     console.error('Error al agregar inventario:', error);
     res.status(500).json({ error: 'Error al agregar inventario' });
@@ -2468,21 +2482,21 @@ app.post('/api/admin/reset-litros', authenticateToken, async (req, res) => {
     const result = await db.run(
       'UPDATE clientes SET litros_disponibles = litros_mes WHERE activo = 1'
     );
-    
+
     // Obtener información de los clientes actualizados
     const clientes = await db.all(
       'SELECT id, nombre, cedula, litros_mes, litros_disponibles FROM clientes WHERE activo = 1'
     );
-    
+
     console.log(`✅ Reset de litros completado para ${result.changes} clientes`);
-    
+
     res.json({
       success: true,
       message: `Litros disponibles reseteados para ${result.changes} clientes`,
       clientes_actualizados: clientes.length,
       clientes: clientes
     });
-    
+
   } catch (error) {
     console.error('Error al resetear litros:', error);
     res.status(500).json({ error: 'Error al resetear litros disponibles' });
@@ -2493,35 +2507,35 @@ app.post('/api/admin/reset-litros', authenticateToken, async (req, res) => {
 app.patch('/api/agendamientos/:id/entregar', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Obtener el agendamiento
     const agendamiento = await db.get(
       'SELECT * FROM agendamientos WHERE id = ?',
       [id]
     );
-    
+
     if (!agendamiento) {
       return res.status(404).json({ error: 'Agendamiento no encontrado' });
     }
-    
+
     if (agendamiento.estado !== 'pendiente') {
       return res.status(400).json({ error: 'El agendamiento ya fue procesado' });
     }
-    
+
     // Marcar como entregado
     await db.run(
       'UPDATE agendamientos SET estado = "entregado", fecha_procesado = CURRENT_TIMESTAMP WHERE id = ?',
       [id]
     );
-    
+
     console.log(`✅ Agendamiento ${id} marcado como entregado - Ticket: ${agendamiento.codigo_ticket}`);
-    
+
     res.json({
       success: true,
       message: 'Agendamiento marcado como entregado',
       ticket: agendamiento.codigo_ticket
     });
-    
+
   } catch (error) {
     console.error('Error al marcar agendamiento como entregado:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -2537,16 +2551,16 @@ function iniciarTareasAutomaticas() {
     console.log('⏰ Ejecutando recarga automática diaria programada...');
     await recargarLitrosDiarios();
   });
-  
+
   // Procesamiento de agendamientos a las 05:00 (5 AM)
   cron.schedule('0 5 * * *', async () => {
     console.log('⏰ Ejecutando procesamiento automático de agendamientos...');
     await procesarAgendamientosDelDia();
   });
-  
+
   console.log('✅ Sistema de recarga automática diaria activado (00:00 cada día)');
   console.log('✅ Sistema de procesamiento automático de agendamientos activado (05:00 cada día)');
-  
+
   // Opcional: Ejecutar inmediatamente al iniciar el servidor (para pruebas)
   // Descomentar las siguientes líneas si quieres que se ejecuten al iniciar
   // recargarLitrosDiarios();
@@ -2557,10 +2571,10 @@ function iniciarTareasAutomaticas() {
 async function startServer() {
   try {
     await initDB();
-    
+
     // Iniciar tareas automáticas
     await iniciarTareasAutomaticas();
-    
+
     app.listen(PORT, () => {
       console.log(`Servidor Node.js ejecutándose en http://localhost:${PORT}`);
     });

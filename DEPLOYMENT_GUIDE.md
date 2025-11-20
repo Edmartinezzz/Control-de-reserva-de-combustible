@@ -72,7 +72,7 @@ git push -u origin main
 
 ## 🐍 PASO 3: Deploy del Backend en Railway
 
-Railway alojará tu servidor Flask (Python).
+Railway alojará tu servidor Node.js (Express).
 
 ### 3.1 Crear cuenta en Railway
 1. Ve a [railway.app](https://railway.app)
@@ -87,7 +87,7 @@ Railway alojará tu servidor Flask (Python).
 4. Click en el repositorio para seleccionarlo
 
 ### 3.3 Configurar el servicio
-1. Railway detectará automáticamente que es Python
+1. Railway detectará automáticamente que es Node.js gracias al `package.json` o `Procfile`
 2. Espera a que termine el deploy (2-3 minutos)
 3. Verás el estado "Success" cuando esté listo
 
@@ -98,8 +98,10 @@ Railway alojará tu servidor Flask (Python).
 4. Agrega estas variables:
 
    ```
-   FLASK_ENV = production
+   NODE_ENV = production
    ALLOWED_ORIGINS = https://tu-proyecto.vercel.app
+   JWT_SECRET = tu_clave_secreta_muy_segura
+   ADMIN_PASSWORD = tu_password_admin
    ```
    
    > **Nota:** Por ahora deja `ALLOWED_ORIGINS` vacío, lo actualizaremos después de crear el frontend

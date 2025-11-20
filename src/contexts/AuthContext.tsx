@@ -49,9 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('user', JSON.stringify(data.usuario));
       setUser(data.usuario);
       router.push('/dashboard');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al iniciar sesión:', error);
-      throw new Error('Usuario o contraseña incorrectos');
+      const message = error?.message || 'Error al iniciar sesión';
+      throw new Error(message);
     }
   };
 
