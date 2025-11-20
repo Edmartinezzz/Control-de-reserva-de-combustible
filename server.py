@@ -90,13 +90,24 @@ def init_db():
             )
         ''')
         
-        # Crear usuario admin por defecto si no existe
+        # Crear o actualizar usuario admin
+        admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+        
         cursor.execute('SELECT * FROM usuarios WHERE usuario = ?', ('admin',))
-        if not cursor.fetchone():
+        if cursor.fetchone():
+            # Si existe, actualizar contraseña
+            cursor.execute(
+                'UPDATE usuarios SET contrasena = ? WHERE usuario = ?',
+                (admin_password, 'admin')
+            )
+            print(f"Usuario admin actualizado con contraseña configurada")
+        else:
+            # Si no existe, crear
             cursor.execute(
                 'INSERT INTO usuarios (usuario, contrasena, nombre, es_admin) VALUES (?, ?, ?, ?)',
-                ('admin', 'admin123', 'Administrador', 1)
+                ('admin', admin_password, 'Administrador', 1)
             )
+            print(f"Usuario admin creado con contraseña configurada")
         
         db.commit()
 
