@@ -160,3 +160,195 @@
     @apply bg-gray-50;
   }
 }
+
+/* Mobile-first responsive utilities */
+@layer utilities {
+  /* Responsive text sizes */
+  .text-responsive-xs {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl md:text-2xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl md:text-3xl;
+  }
+  
+  /* Responsive padding */
+  .p-responsive {
+    @apply p-3 sm:p-4 md:p-6;
+  }
+  
+  .px-responsive {
+    @apply px-3 sm:px-4 md:px-6;
+  }
+  
+  .py-responsive {
+    @apply py-3 sm:py-4 md:py-6;
+  }
+  
+  /* Responsive spacing */
+  .space-y-responsive > * + * {
+    @apply mt-3 sm:mt-4 md:mt-6;
+  }
+  
+  .gap-responsive {
+    @apply gap-3 sm:gap-4 md:gap-6;
+  }
+}
+
+/* Mobile-specific overrides */
+@media (max-width: 640px) {
+  /* Reduce heading sizes on mobile */
+  h1 {
+    @apply text-2xl;
+  }
+  
+  h2 {
+    @apply text-xl;
+  }
+  
+  h3 {
+    @apply text-lg;
+  }
+  
+  /* Make buttons more touch-friendly */
+  .btn {
+    @apply px-4 py-3 text-sm;
+    min-height: 44px; /* iOS recommended touch target */
+  }
+  
+  /* Improve table mobile experience */
+  .table th,
+  .table td {
+    @apply px-3 py-2 text-xs;
+  }
+  
+  /* Stack cards on mobile */
+  .card {
+    @apply mb-4;
+  }
+  
+  /* Full-width inputs on mobile */
+  .input-field {
+    @apply text-base; /* Prevents zoom on iOS */
+  }
+  
+  /* Responsive container */
+  .container {
+    @apply px-3;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .btn {
+    @apply px-4 py-2.5;
+  }
+  
+  .table th,
+  .table td {
+    @apply px-4 py-3 text-sm;
+  }
+}
+
+/* Hide scrollbars but keep functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes bounce-in {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out;
+}
+
+.animate-fade-in-down {
+  animation: fade-in-down 0.3s ease-out;
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out;
+}
+
