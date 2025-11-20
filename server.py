@@ -355,6 +355,57 @@ def obtener_clientes_simple():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/clientes/lista', methods=['GET'])
+@token_required
+def obtener_clientes_lista():
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT 
+                c.id,
+                c.nombre,
+                c.cedula,
+                c.telefono,
+                c.placa,
+                c.categoria,
+                c.subcategoria,
+                c.litros_mes,
+                c.litros_disponibles,
+                COUNT(r.id) as total_retiros,
+                COALESCE(SUM(r.litros), 0) as total_litros_retirados,
+                MAX(r.fecha) as ultimo_retiro
+            FROM clientes c
+            LEFT JOIN retiros r ON c.id = r.cliente_id
+            WHERE c.activo = 1 
+            GROUP BY c.id
+            ORDER BY c.nombre ASC
+        ''')
+        
+        clientes = []
+        for row in cursor.fetchall():
+            cliente = dict(row)
+            clientes.append({
+                'id': cliente['id'],
+                'nombre': cliente['nombre'],
+                'cedula': cliente['cedula'],
+                'telefono': cliente['telefono'],
+                'placa': cliente['placa'] or 'N/A',
+                'categoria': cliente['categoria'],
+                'subcategoria': cliente['subcategoria'] or 'N/A',
+                'litros_mes': cliente['litros_mes'],
+                'litros_disponibles': cliente['litros_disponibles'],
+                'total_retiros': cliente['total_retiros'],
+                'total_litros_retirados': cliente['total_litros_retirados'],
+                'ultimo_retiro': cliente['ultimo_retiro']
+            })
+        
+        return jsonify(clientes)
+    except Exception as e:
+        print(f"Error al obtener lista de clientes: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
 @app.route('/api/clientes/<int:cliente_id>', methods=['GET'])
 @token_required
 def obtener_cliente(cliente_id):
