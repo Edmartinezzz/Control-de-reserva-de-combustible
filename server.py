@@ -1047,6 +1047,37 @@ def crear_agendamiento():
         print(f"Error al crear agendamiento: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
+@app.route('/api/agendamientos/<int:agendamiento_id>/entregar', methods=['PATCH'])
+@token_required
+def marcar_como_entregado(agendamiento_id):
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        # Verificar que el agendamiento existe
+        cursor.execute('SELECT id, estado FROM agendamientos WHERE id = ?', (agendamiento_id,))
+        agendamiento = cursor.fetchone()
+        
+        if not agendamiento:
+            return jsonify({'error': 'Agendamiento no encontrado'}), 404
+        
+        # Actualizar estado a 'entregado'
+        cursor.execute('''
+            UPDATE agendamientos 
+            SET estado = 'entregado'
+            WHERE id = ?
+        ''', (agendamiento_id,))
+        
+        db.commit()
+        return jsonify({
+            'message': 'Agendamiento marcado como entregado',
+            'id': agendamiento_id
+        }), 200
+    except Exception as e:
+        db.rollback()
+        print(f"Error al marcar como entregado: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
 @app.route('/api/agendamientos/cliente/<int:cliente_id>', methods=['GET'])
 def obtener_agendamientos_cliente(cliente_id):
     db = get_db()

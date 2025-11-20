@@ -3,6 +3,7 @@
 import { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { FiX, FiDownload, FiCalendar, FiUser, FiCreditCard, FiDroplet, FiTruck } from 'react-icons/fi';
+import jsPDF from 'jspdf';
 
 interface TicketData {
   codigo_ticket: number;
@@ -33,65 +34,157 @@ export default function TicketModal({ isOpen, onClose, ticketData }: TicketModal
   if (!ticketData) return null;
 
   const descargarTicket = () => {
+    const doc = new jsPDF('p', 'mm', 'a4');
+
+    // Colores
+    const azul: [number, number, number] = [37, 99, 235];
+    const verde: [number, number, number] = [34, 197, 94];
+    const gris: [number, number, number] = [75, 85, 99];
+    const grisClaro: [number, number, number] = [248, 250, 252];
+
+    // HEADER
+    doc.setFillColor(...azul);
+    doc.rect(0, 0, 210, 40, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SISTEMA DE DESPACHO DE GAS', 105, 15, { align: 'center' });
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.text('TICKET DE AGENDAMIENTO', 105, 25, { align: 'center' });
+
+    // Código de ticket destacado
+    doc.setFontSize(24);
+    doc.setFont('helvetica', 'bold');
+    const ticketNum = `#${ticketData.codigo_ticket.toString().padStart(3, '0')}`;
+    doc.text(ticketNum, 105, 35, { align: 'center' });
+
+    let y = 50;
+
+    // INFORMACIÓN DEL CLIENTE
+    doc.setFillColor(...grisClaro);
+    doc.rect(15, y, 180, 8, 'F');
+
+    doc.setTextColor(...gris);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INFORMACIÓN DEL CLIENTE', 20, y + 5);
+
+    y += 12;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Nombre: ${ticketData.cliente.nombre}`, 20, y);
+    y += 6;
+    doc.text(`Cédula: ${ticketData.cliente.cedula}`, 20, y);
+    y += 6;
+    doc.text(`Teléfono: ${ticketData.cliente.telefono}`, 20, y);
+    y += 6;
+    doc.text(`Dependencia: ${ticketData.cliente.categoria}`, 20, y);
+    y += 6;
+    doc.text(`Placa: ${ticketData.cliente.placa || 'No registrada'}`, 20, y);
+    y += 10;
+
+    // TRABAJADOR (si existe)
+    if (ticketData.subcliente?.nombre) {
+      doc.setFillColor(...grisClaro);
+      doc.rect(15, y, 180, 8, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('TRABAJADOR ASIGNADO', 20, y + 5);
+
+      y += 12;
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Nombre: ${ticketData.subcliente.nombre}`, 20, y);
+      y += 6;
+      doc.text(`Cédula: ${ticketData.subcliente.cedula || 'No registrada'}`, 20, y);
+      y += 6;
+      doc.text(`Placa: ${ticketData.subcliente.placa || 'No registrada'}`, 20, y);
+      y += 10;
+    }
+
+    // DETALLES DEL AGENDAMIENTO
+    doc.setFillColor(...grisClaro);
+    doc.rect(15, y, 180, 8, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('DETALLES DEL AGENDAMIENTO', 20, y + 5);
+
+    y += 12;
+
+    doc.setFont('helvetica', 'normal');
+    const fechaAgendamiento = new Date().toLocaleDateString('es-ES', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    doc.text(`Fecha de Agendamiento: ${fechaAgendamiento} (HOY)`, 20, y);
+    y += 6;
+
+    const fechaRetiro = new Date(ticketData.fecha_agendada).toLocaleDateString('es-ES', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    doc.setTextColor(...azul);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Fecha de Retiro: ${fechaRetiro} (MAÑANA)`, 20, y);
+    y += 6;
+
+    doc.setTextColor(...gris);
+    doc.setFont('helvetica', 'normal');
     const tipoLabel = ticketData.tipo_combustible === 'gasoil' ? 'GASOIL' : 'GASOLINA';
-    const trabajadorLinea = ticketData.subcliente?.nombre
-      ? `\nTRABAJADOR ASIGNADO\n--------------------\nNombre: ${ticketData.subcliente.nombre}\nCédula: ${ticketData.subcliente.cedula || 'No registrada'}\nPlaca: ${ticketData.subcliente.placa || 'No registrada'}\n`
-      : '';
+    doc.text(`Litros Agendados: ${ticketData.litros}L`, 20, y);
+    y += 6;
+    doc.text(`Tipo: ${tipoLabel}`, 20, y);
+    y += 6;
+    doc.setTextColor(...verde);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Estado: CONFIRMADO', 20, y);
+    y += 12;
 
-    const ticketContent = `
-SISTEMA DE DESPACHO DE GAS
-==========================
+    // INSTRUCCIONES
+    doc.setFillColor(254, 243, 199); // yellow-100
+    doc.rect(15, y, 180, 35, 'F');
 
-TICKET DE AGENDAMIENTO
-Código: #${ticketData.codigo_ticket.toString().padStart(3, '0')}
+    doc.setTextColor(146, 64, 14); // yellow-900
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('📋 INSTRUCCIONES IMPORTANTES', 20, y + 6);
 
-INFORMACIÓN DEL CLIENTE
------------------------
-Nombre: ${ticketData.cliente.nombre}
-Cédula: ${ticketData.cliente.cedula}
-Teléfono: ${ticketData.cliente.telefono}
-Dependencia: ${ticketData.cliente.categoria}
-Placa: ${ticketData.cliente.placa || 'No registrada'}
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    y += 12;
+    doc.text('1. Presente este ticket el día de retiro', 20, y);
+    y += 5;
+    doc.text('2. Horario de atención: 8:00 AM - 5:00 PM', 20, y);
+    y += 5;
+    doc.text('3. Traiga su cédula de identidad', 20, y);
+    y += 5;
+    doc.text('4. El combustible será entregado por el administrador', 20, y);
 
-${trabajadorLinea}
+    // FOOTER
+    doc.setDrawColor(...azul);
+    doc.setLineWidth(2);
+    doc.line(15, 270, 195, 270);
 
-DETALLES DEL AGENDAMIENTO
--------------------------
-Fecha de Agendamiento: ${new Date().toLocaleDateString('es-ES', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })} ${new Date().toLocaleTimeString('es-ES')} (HOY)
-Fecha de Retiro: ${new Date(ticketData.fecha_agendada).toLocaleDateString('es-ES', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })} (MAÑANA)
-Litros Agendados: ${ticketData.litros}L
-Tipo: ${tipoLabel}
-Estado: Confirmado
+    doc.setTextColor(...gris);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES')}`, 15, 277);
+    doc.text('¡Gracias por usar nuestro sistema!', 15, 282);
 
-INSTRUCCIONES
--------------
-1. Presente este ticket el día de retiro
-2. Horario de atención: 8:00 AM - 5:00 PM
-3. Traiga su cédula de identidad
-4. El combustible será procesado automáticamente a las 5:00 AM
+    doc.setFont('helvetica', 'bold');
+    doc.text('DESPACHO GAS+', 150, 277);
 
-¡Gracias por usar nuestro sistema!
-    `;
-
-    const blob = new Blob([ticketContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `ticket_${ticketData.codigo_ticket.toString().padStart(3, '0')}.txt`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    // Guardar PDF
+    const fileName = `ticket_${ticketData.codigo_ticket.toString().padStart(3, '0')}.pdf`;
+    doc.save(fileName);
   };
 
   return (
