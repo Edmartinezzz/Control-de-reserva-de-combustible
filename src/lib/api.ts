@@ -1,11 +1,17 @@
 import axios from 'axios';
 
-// Usar ruta relativa para la API (vacío para rutas relativas)
+const rawBaseUrl =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_API_BASE_URL ||
+  '';
+const normalizedBaseUrl = rawBaseUrl.trim().replace(/\/$/, '');
+
+// Usar ruta relativa solo si no existe baseURL configurada
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || '',
+  baseURL: normalizedBaseUrl || undefined,
   headers: {
     'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    Accept: 'application/json',
   },
   withCredentials: true,
   timeout: 60000, // 60 segundos de timeout (tolerancia a cold-start)

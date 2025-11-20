@@ -112,33 +112,6 @@ def init_db():
         ''')
         
         cursor.execute('''
-            CREATE TABLE IF NOT EXISTS agendamientos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                cliente_id INTEGER NOT NULL,
-                subcliente_id INTEGER,
-                tipo_combustible TEXT NOT NULL DEFAULT 'gasolina',
-                litros REAL NOT NULL,
-                fecha_agendada TEXT NOT NULL,
-                codigo_ticket INTEGER,
-                estado TEXT NOT NULL DEFAULT 'pendiente',
-                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (cliente_id) REFERENCES clientes (id),
-                FOREIGN KEY (subcliente_id) REFERENCES clientes (id)
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS limites_diarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                fecha TEXT NOT NULL,
-                tipo_combustible TEXT NOT NULL DEFAULT 'gasolina',
-                litros_agendados REAL DEFAULT 0,
-                litros_procesados REAL DEFAULT 0,
-                UNIQUE(fecha, tipo_combustible)
-            )
-        ''')
-        
-        cursor.execute('''
             CREATE TABLE IF NOT EXISTS subclientes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 cliente_padre_id INTEGER NOT NULL,
@@ -153,19 +126,6 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (cliente_padre_id) REFERENCES clientes (id)
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS inventario (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tipo_combustible TEXT NOT NULL CHECK(tipo_combustible IN ('gasoil', 'gasolina')),
-                litros_ingresados REAL NOT NULL,
-                litros_disponibles REAL NOT NULL,
-                fecha_ingreso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                usuario_id INTEGER,
-                observaciones TEXT,
-                FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
             )
         ''')
         
@@ -337,61 +297,6 @@ def login():
         print(f"Error en el login: {str(e)}")
         return jsonify({'error': 'Error en el servidor'}), 500
 
-# Login de clientes (sin autenticación requerida)
-@app.route('/api/clientes/login', methods=['POST'])
-def login_cliente():
-    try:
-        data = request.json
-        cedula = data.get('cedula')
-        
-        if not cedula:
-            return jsonify({'error': 'La cédula es requerida'}), 400
-        
-        db = get_db()
-        cursor = db.cursor()
-        
-        cursor.execute('SELECT * FROM clientes WHERE cedula = ? AND activo = 1', (cedula,))
-        cliente = cursor.fetchone()
-        
-        if not cliente:
-            return jsonify({'error': 'Cliente no encontrado o inactivo'}), 404
-        
-        cliente_dict = dict(cliente)
-        
-        # Generar token JWT
-        token = jwt.encode(
-            {
-                'id': cliente_dict['id'],
-                'nombre': cliente_dict['nombre'],
-                'cedula': cliente_dict['cedula'],
-                'tipo': 'cliente'
-            },
-            app.config['SECRET_KEY'],
-            algorithm='HS256'
-        )
-        
-        # Devolver información del cliente
-        return jsonify({
-            'token': token,
-            'cliente': {
-                'id': cliente_dict['id'],
-                'nombre': cliente_dict['nombre'],
-                'cedula': cliente_dict['cedula'],
-                'telefono': cliente_dict.get('telefono'),
-                'categoria': cliente_dict.get('categoria'),
-                'placa': cliente_dict.get('placa'),
-                'litros_disponibles': cliente_dict.get('litros_disponibles', 0),
-                'litros_mes': cliente_dict.get('litros_mes', 0),
-                'litros_disponibles_gasolina': cliente_dict.get('litros_disponibles_gasolina', 0),
-                'litros_disponibles_gasoil': cliente_dict.get('litros_disponibles_gasoil', 0),
-                'litros_mes_gasolina': cliente_dict.get('litros_mes_gasolina', 0),
-                'litros_mes_gasoil': cliente_dict.get('litros_mes_gasoil', 0)
-            }
-        })
-    except Exception as e:
-        print(f"Error en autenticación de cliente: {e}")
-        return jsonify({'error': 'Error en el servidor'}), 500
-
 # Rutas de clientes
 @app.route('/api/clientes', methods=['GET'])
 @token_required
@@ -432,57 +337,6 @@ def obtener_clientes_simple():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/clientes/lista', methods=['GET'])
-@token_required
-def obtener_clientes_lista():
-    db = get_db()
-    cursor = db.cursor()
-    
-    try:
-        cursor.execute('''
-            SELECT 
-                c.id,
-                c.nombre,
-                c.cedula,
-                c.telefono,
-                c.placa,
-                c.categoria,
-                c.subcategoria,
-                c.litros_mes,
-                c.litros_disponibles,
-                COUNT(r.id) as total_retiros,
-                COALESCE(SUM(r.litros), 0) as total_litros_retirados,
-                MAX(r.fecha) as ultimo_retiro
-            FROM clientes c
-            LEFT JOIN retiros r ON c.id = r.cliente_id
-            WHERE c.activo = 1 
-            GROUP BY c.id
-            ORDER BY c.nombre ASC
-        ''')
-        
-        clientes = []
-        for row in cursor.fetchall():
-            cliente = dict(row)
-            clientes.append({
-                'id': cliente['id'],
-                'nombre': cliente['nombre'],
-                'cedula': cliente['cedula'],
-                'telefono': cliente['telefono'],
-                'placa': cliente['placa'] or 'N/A',
-                'categoria': cliente['categoria'],
-                'subcategoria': cliente['subcategoria'] or 'N/A',
-                'litros_mes': cliente['litros_mes'],
-                'litros_disponibles': cliente['litros_disponibles'],
-                'total_retiros': cliente['total_retiros'],
-                'total_litros_retirados': cliente['total_litros_retirados'],
-                'ultimo_retiro': cliente['ultimo_retiro']
-            })
-        
-        return jsonify(clientes)
-    except Exception as e:
-        print(f"Error al obtener lista de clientes: {e}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
-
 @app.route('/api/clientes/<int:cliente_id>', methods=['GET'])
 @token_required
 def obtener_cliente(cliente_id):
@@ -498,170 +352,6 @@ def obtener_cliente(cliente_id):
         FROM clientes c 
         WHERE c.id = ? AND c.activo = 1
     ''', (cliente_id,))
-    
-    cliente = cursor.fetchone()
-    if not cliente:
-        return jsonify({'error': 'Cliente no encontrado'}), 404
-    
-    return jsonify(dict(cliente))
-
-@app.route('/api/clientes/<int:cliente_id>/tickets', methods=['GET'])
-@token_required
-def obtener_tickets_cliente(cliente_id):
-    db = get_db()
-    cursor = db.cursor()
-    
-    try:
-        cursor.execute('''
-            SELECT 
-                r.id,
-                r.litros,
-                r.tipo_combustible,
-                r.codigo_ticket,
-                r.fecha,
-                c.nombre as cliente_nombre,
-                c.cedula as cliente_cedula,
-                c.telefono as cliente_telefono,
-                c.placa as cliente_placa,
-                c.categoria as cliente_categoria
-            FROM retiros r
-            JOIN clientes c ON r.cliente_id = c.id
-            WHERE r.cliente_id = ?
-            ORDER BY r.fecha DESC
-            LIMIT 50
-        ''', (cliente_id,))
-        
-        tickets = [dict(row) for row in cursor.fetchall()]
-        return jsonify(tickets)
-    except Exception as e:
-        print(f"Error al obtener tickets del cliente: {e}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
-
-@app.route('/api/clientes/<int:cliente_id>/subclientes', methods=['GET'])
-@token_required
-def obtener_subclientes(cliente_id):
-    db = get_db()
-    cursor = db.cursor()
-    
-    try:
-        # Verificar que el cliente padre existe
-        cursor.execute('SELECT id, nombre FROM clientes WHERE id = ? AND activo = 1', (cliente_id,))
-        cliente_padre = cursor.fetchone()
-        if not cliente_padre:
-            return jsonify({'error': 'Cliente padre no encontrado'}), 404
-        
-        cursor.execute('''
-            SELECT id, cliente_padre_id, nombre, cedula, placa,
-                   litros_mes_gasolina, litros_mes_gasoil,
-                   litros_disponibles_gasolina, litros_disponibles_gasoil,
-                   activo, created_at, updated_at
-            FROM subclientes
-            WHERE cliente_padre_id = ? AND activo = 1
-            ORDER BY nombre ASC
-        ''', (cliente_id,))
-        
-        subclientes = [dict(row) for row in cursor.fetchall()]
-        return jsonify(subclientes)
-    except Exception as e:
-        print(f"Error al obtener subclientes: {e}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
-
-@app.route('/api/clientes/<int:cliente_id>/subclientes', methods=['POST'])
-@token_required
-def crear_subcliente(cliente_id):
-    db = get_db()
-    cursor = db.cursor()
-    
-    try:
-        data = request.json
-        nombre = data.get('nombre')
-        cedula = data.get('cedula')
-        placa = data.get('placa')
-        litros_mes_gasolina = float(data.get('litros_mes_gasolina', 0))
-        litros_mes_gasoil = float(data.get('litros_mes_gasoil', 0))
-        
-        if not nombre:
-            return jsonify({'error': 'El nombre del subcliente es requerido'}), 400
-        
-        # Verificar cliente padre
-        cursor.execute('SELECT id, nombre, litros_mes_gasolina, litros_mes_gasoil FROM clientes WHERE id = ? AND activo = 1', (cliente_id,))
-        cliente_padre = cursor.fetchone()
-        if not cliente_padre:
-            return jsonify({'error': 'Cliente padre no encontrado'}), 404
-        
-        cliente_padre_dict = dict(cliente_padre)
-        
-        # Obtener suma actual de litros asignados a subclientes
-        cursor.execute('''
-            SELECT 
-                COALESCE(SUM(litros_mes_gasolina), 0) AS total_gasolina,
-                COALESCE(SUM(litros_mes_gasoil), 0) AS total_gasoil
-            FROM subclientes
-            WHERE cliente_padre_id = ? AND activo = 1
-        ''', (cliente_id,))
-        sumas = cursor.fetchone()
-        
-        total_gasolina_asignado = (sumas['total_gasolina'] if sumas else 0) + litros_mes_gasolina
-        total_gasoil_asignado = (sumas['total_gasoil'] if sumas else 0) + litros_mes_gasoil
-        
-        # Validar que no exceda los litros mensuales del cliente padre
-        padre_gasolina_mes = cliente_padre_dict.get('litros_mes_gasolina', 0) or 0
-        padre_gasoil_mes = cliente_padre_dict.get('litros_mes_gasoil', 0) or 0
-        
-        if total_gasolina_asignado > padre_gasolina_mes or total_gasoil_asignado > padre_gasoil_mes:
-            return jsonify({
-                'error': 'Los litros asignados a subclientes exceden los litros mensuales del cliente padre',
-                'padre_gasolina': padre_gasolina_mes,
-                'padre_gasoil': padre_gasoil_mes,
-                'asignado_gasolina': total_gasolina_asignado,
-                'asignado_gasoil': total_gasoil_asignado
-            }), 400
-        
-        # Crear subcliente
-        cursor.execute('''
-            INSERT INTO subclientes (
-                cliente_padre_id, nombre, cedula, placa,
-                litros_mes_gasolina, litros_mes_gasoil,
-                litros_disponibles_gasolina, litros_disponibles_gasoil,
-                activo
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
-        ''', (
-            cliente_id,
-            nombre,
-            cedula,
-            placa,
-            litros_mes_gasolina,
-            litros_mes_gasoil,
-            litros_mes_gasolina,  # litros_disponibles inicial = litros_mes
-            litros_mes_gasoil     # litros_disponibles inicial = litros_mes
-        ))
-        
-        db.commit()
-        subcliente_id = cursor.lastrowid
-        
-        return jsonify({
-            'message': 'Subcliente creado exitosamente',
-            'subclienteId': subcliente_id
-        }), 201
-    except Exception as e:
-        db.rollback()
-        print(f"Error al crear subcliente: {e}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
-
-@app.route('/api/clientes/telefono/<telefono>', methods=['GET'])
-def obtener_cliente_por_telefono(telefono):
-    db = get_db()
-    cursor = db.cursor()
-    
-    cursor.execute('''
-        SELECT c.*, 
-               (SELECT SUM(litros) FROM retiros 
-                WHERE cliente_id = c.id 
-                AND date('now', 'start of month') <= date(fecha) 
-                AND date(fecha) <= date('now', 'start of month', '+1 month', '-1 day')) as litros_retirados_mes
-        FROM clientes c 
-        WHERE c.telefono = ? AND c.activo = 1
-    ''', (telefono,))
     
     cliente = cursor.fetchone()
     if not cliente:
@@ -932,95 +622,7 @@ def obtener_estadisticas_retiros():
         print(f"Error stats: {e}")
         return jsonify({'error': str(e)}), 500
 
-# Rutas de agendamientos
-@app.route('/api/agendamientos/dia/<fecha>', methods=['GET'])
-def obtener_agendamientos_dia(fecha):
-    db = get_db()
-    cursor = db.cursor()
-    
-    try:
-        cursor.execute('''
-            SELECT 
-                a.id,
-                a.cliente_id,
-                c.nombre as cliente_nombre,
-                c.cedula,
-                c.telefono,
-                c.placa,
-                a.tipo_combustible,
-                a.litros,
-                a.fecha_agendada,
-                a.codigo_ticket,
-                a.estado,
-                a.fecha_creacion,
-                a.subcliente_id,
-                s.nombre AS subcliente_nombre,
-                s.cedula AS subcliente_cedula,
-                s.placa AS subcliente_placa
-            FROM agendamientos a
-            JOIN clientes c ON a.cliente_id = c.id
-            LEFT JOIN clientes s ON a.subcliente_id = s.id
-            WHERE a.fecha_agendada = ?
-            ORDER BY a.codigo_ticket ASC
-        ''', (fecha,))
-        
-        agendamientos = [dict(row) for row in cursor.fetchall()]
-        return jsonify(agendamientos)
-    except Exception as e:
-        print(f"Error al obtener agendamientos: {e}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
-
 # Rutas de sistema y administración
-@app.route('/api/sistema/limites', methods=['GET'])
-def obtener_limites():
-    db = get_db()
-    cursor = db.cursor()
-    
-    try:
-        from datetime import datetime, timedelta
-        
-        # Obtener configuración
-        cursor.execute('SELECT limite_diario_gasolina FROM sistema_config WHERE id = 1')
-        config = cursor.fetchone()
-        limite_diario = config['limite_diario_gasolina'] if config and config['limite_diario_gasolina'] else 2000
-        
-        # Fechas
-        hoy = datetime.now().strftime('%Y-%m-%d')
-        mañana = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
-        
-        # Límites de hoy
-        cursor.execute('''
-            SELECT litros_agendados, litros_procesados 
-            FROM limites_diarios 
-            WHERE fecha = ? AND tipo_combustible = "gasolina"
-        ''', (hoy,))
-        limites_hoy = cursor.fetchone()
-        
-        # Límites de mañana
-        cursor.execute('''
-            SELECT litros_agendados 
-            FROM limites_diarios 
-            WHERE fecha = ? AND tipo_combustible = "gasolina"
-        ''', (mañana,))
-        limites_mañana = cursor.fetchone()
-        
-        return jsonify({
-            'limite_diario': limite_diario,
-            'hoy': {
-                'fecha': hoy,
-                'agendados': limites_hoy['litros_agendados'] if limites_hoy else 0,
-                'procesados': limites_hoy['litros_procesados'] if limites_hoy else 0
-            },
-            'mañana': {
-                'fecha': mañana,
-                'agendados': limites_mañana['litros_agendados'] if limites_mañana else 0,
-                'disponible': limite_diario - (limites_mañana['litros_agendados'] if limites_mañana else 0)
-            }
-        })
-    except Exception as e:
-        print(f"Error al obtener límites: {e}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
-
 @app.route('/api/sistema/bloqueo', methods=['GET', 'POST'])
 @token_required
 def sistema_bloqueo():
@@ -1069,153 +671,115 @@ def reset_litros():
         db.rollback()
         return jsonify({'error': str(e)}), 500
 
-# Rutas de inventario
-@app.route('/api/inventario/estado', methods=['GET'])
-def obtener_estado_inventario():
-    db = get_db()
-    cursor = db.cursor()
-    
-    try:
-        cursor.execute('SELECT tipo_combustible, litros_disponibles FROM inventario ORDER BY id DESC')
-        inventarios = cursor.fetchall()
-        
-        # Obtener el último registro de cada tipo de combustible
-        estado_inventario = {}
-        tipos_vistos = set()
-        for inv in inventarios:
-            tipo = inv['tipo_combustible']
-            if tipo not in tipos_vistos:
-                estado_inventario[tipo] = inv['litros_disponibles']
-                tipos_vistos.add(tipo)
-        
-        disponible = any(litros > 0 for litros in estado_inventario.values())
-        
-        return jsonify({
-            'inventario': estado_inventario,
-            'disponible': disponible
-        })
-    except Exception as e:
-        print(f"Error al obtener estado del inventario: {e}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
-
-@app.route('/api/inventario', methods=['GET'])
+# Rutas de subclientes (trabajadores)
+@app.route('/api/clientes/<int:cliente_id>/subclientes', methods=['GET'])
 @token_required
-def obtener_inventario():
+def obtener_subclientes(cliente_id):
     db = get_db()
     cursor = db.cursor()
     
     try:
-        # Obtener el último registro de cada tipo de combustible
-        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasoil',))
-        gasoil = cursor.fetchone()
+        # Verificar que el cliente padre existe
+        cursor.execute('SELECT id, nombre FROM clientes WHERE id = ? AND activo = 1', (cliente_id,))
+        cliente_padre = cursor.fetchone()
+        if not cliente_padre:
+            return jsonify({'error': 'Cliente padre no encontrado'}), 404
         
-        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasolina',))
-        gasolina = cursor.fetchone()
+        # Obtener subclientes
+        cursor.execute('''
+            SELECT id, cliente_padre_id, nombre, cedula, placa,
+                   litros_mes_gasolina, litros_mes_gasoil,
+                   litros_disponibles_gasolina, litros_disponibles_gasoil,
+                   activo, created_at, updated_at
+            FROM subclientes
+            WHERE cliente_padre_id = ?
+            ORDER BY nombre ASC
+        ''', (cliente_id,))
         
-        # Devolver un array con ambos tipos
-        inventario = []
-        if gasoil:
-            inventario.append(dict(gasoil))
-        if gasolina:
-            inventario.append(dict(gasolina))
-        
-        return jsonify(inventario)
+        subclientes = [dict(row) for row in cursor.fetchall()]
+        return jsonify(subclientes)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/inventario/historial', methods=['GET'])
+@app.route('/api/clientes/<int:cliente_id>/subclientes', methods=['POST'])
 @token_required
-def obtener_historial_inventario():
+def crear_subcliente(cliente_id):
+    data = request.json
     db = get_db()
     cursor = db.cursor()
     
     try:
+        nombre = data.get('nombre')
+        if not nombre:
+            return jsonify({'error': 'El nombre del subcliente es requerido'}), 400
+        
+        # Verificar cliente padre
         cursor.execute('''
-            SELECT i.*, u.usuario as usuario_nombre 
-            FROM inventario i 
-            LEFT JOIN usuarios u ON i.usuario_id = u.id 
-            ORDER BY i.fecha_ingreso DESC
-        ''')
-        historial = [dict(row) for row in cursor.fetchall()]
-        return jsonify(historial)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/inventario', methods=['POST'])
-@token_required
-def crear_inventario():
-    if not g.es_admin:
-        return jsonify({'error': 'No autorizado'}), 403
+            SELECT id, nombre, litros_mes_gasolina, litros_mes_gasoil 
+            FROM clientes 
+            WHERE id = ? AND activo = 1
+        ''', (cliente_id,))
+        cliente_padre = cursor.fetchone()
         
-    db = get_db()
-    cursor = db.cursor()
-    
-    try:
-        data = request.json
-        tipo_combustible = str(data.get('tipo_combustible', '')).lower().strip()
-        litros_ingresados = float(data.get('litros_ingresados', 0))
-        observaciones = data.get('observaciones', '')
+        if not cliente_padre:
+            return jsonify({'error': 'Cliente padre no encontrado'}), 404
         
-        if tipo_combustible not in ['gasoil', 'gasolina']:
-            return jsonify({'error': 'Tipo de combustible inválido. Use "gasoil" o "gasolina"'}), 400
+        gasolina_mes_nuevo = float(data.get('litros_mes_gasolina', 0))
+        gasoil_mes_nuevo = float(data.get('litros_mes_gasoil', 0))
         
-        if litros_ingresados <= 0:
-            return jsonify({'error': 'Ingrese una cantidad válida de litros'}), 400
-        
-        # Obtener el inventario actual para el tipo de combustible específico
-        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', (tipo_combustible,))
-        inventario_actual = cursor.fetchone()
-        
-        litros_disponibles = (dict(inventario_actual)['litros_disponibles'] if inventario_actual else 0) + litros_ingresados
-        
-        # Insertar nuevo registro de inventario
+        # Obtener suma actual de litros asignados a subclientes
         cursor.execute('''
-            INSERT INTO inventario (tipo_combustible, litros_ingresados, litros_disponibles, usuario_id, observaciones)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (tipo_combustible, litros_ingresados, litros_disponibles, g.usuario_id, observaciones))
+            SELECT 
+                COALESCE(SUM(litros_mes_gasolina), 0) AS total_gasolina,
+                COALESCE(SUM(litros_mes_gasoil), 0) AS total_gasoil
+            FROM subclientes
+            WHERE cliente_padre_id = ? AND activo = 1
+        ''', (cliente_id,))
+        
+        sumas = cursor.fetchone()
+        total_gasolina_asignado = (sumas['total_gasolina'] if sumas else 0) + gasolina_mes_nuevo
+        total_gasoil_asignado = (sumas['total_gasoil'] if sumas else 0) + gasoil_mes_nuevo
+        
+        # Validar que no exceda los litros mensuales del cliente padre
+        padre_gasolina_mes = cliente_padre['litros_mes_gasolina'] or 0
+        padre_gasoil_mes = cliente_padre['litros_mes_gasoil'] or 0
+        
+        if total_gasolina_asignado > padre_gasolina_mes or total_gasoil_asignado > padre_gasoil_mes:
+            return jsonify({
+                'error': 'Los litros asignados a subclientes exceden los litros mensuales del cliente padre',
+                'padre_gasolina': padre_gasolina_mes,
+                'padre_gasoil': padre_gasoil_mes,
+                'asignado_gasolina': total_gasolina_asignado,
+                'asignado_gasoil': total_gasoil_asignado
+            }), 400
+        
+        # Crear subcliente
+        cursor.execute('''
+            INSERT INTO subclientes (
+                cliente_padre_id, nombre, cedula, placa,
+                litros_mes_gasolina, litros_mes_gasoil,
+                litros_disponibles_gasolina, litros_disponibles_gasoil,
+                activo
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        ''', (
+            cliente_id,
+            nombre,
+            data.get('cedula'),
+            data.get('placa'),
+            gasolina_mes_nuevo,
+            gasoil_mes_nuevo,
+            gasolina_mes_nuevo,  # litros_disponibles_gasolina inicial
+            gasoil_mes_nuevo     # litros_disponibles_gasoil inicial
+        ))
         
         db.commit()
         return jsonify({
-            'id': cursor.lastrowid,
-            'litros_ingresados': litros_ingresados,
-            'litros_disponibles': litros_disponibles,
-            'usuario_id': g.usuario_id,
-            'observaciones': observaciones
+            'message': 'Subcliente creado exitosamente',
+            'subclienteId': cursor.lastrowid
         }), 201
     except Exception as e:
         db.rollback()
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/inventario/reset', methods=['POST'])
-@token_required
-def resetear_inventario():
-    if not g.es_admin:
-        return jsonify({'error': 'No autorizado'}), 403
-        
-    db = get_db()
-    cursor = db.cursor()
-    
-    try:
-        # Obtener el último registro de gasoil
-        cursor.execute('SELECT id FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasoil',))
-        gasoil_record = cursor.fetchone()
-        if gasoil_record:
-            cursor.execute('UPDATE inventario SET litros_disponibles = 0 WHERE id = ?', (dict(gasoil_record)['id'],))
-        
-        # Obtener el último registro de gasolina
-        cursor.execute('SELECT id FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasolina',))
-        gasolina_record = cursor.fetchone()
-        if gasolina_record:
-            cursor.execute('UPDATE inventario SET litros_disponibles = 0 WHERE id = ?', (dict(gasolina_record)['id'],))
-        
-        db.commit()
-        return jsonify({
-            'message': 'Inventario reseteado a 0 litros',
-            'gasoil': 0,
-            'gasolina': 0
-        })
-    except Exception as e:
-        db.rollback()
+        print(f"Error al crear subcliente: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 # Inicializar la base de datos

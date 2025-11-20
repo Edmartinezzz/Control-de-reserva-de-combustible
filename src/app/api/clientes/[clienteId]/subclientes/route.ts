@@ -1,80 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { clienteId: string } }
+    request: NextRequest,
+    { params }: { params: { clienteId: string } }
 ) {
-  const base = process.env.BACKEND_API_BASE_URL;
-  if (base) {
-    try {
-      const { clienteId } = params;
-      const authHeader = request.headers.get('authorization');
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (authHeader) {
-        headers['Authorization'] = authHeader;
-      }
-      const resp = await fetch(`${base}/api/clientes/${clienteId}/subclientes`, {
-        cache: 'no-store',
-        headers,
-      });
-      if (!resp.ok) {
-        const text = await resp.text();
-        return NextResponse.json({ error: 'Error al obtener subclientes', details: text }, { status: resp.status });
-      }
-      const data = await resp.json();
-      return NextResponse.json(data);
-    } catch (e: any) {
-      return NextResponse.json({ error: 'No se pudo conectar al backend de subclientes' }, { status: 502 });
+    const base = process.env.BACKEND_API_BASE_URL;
+    if (base) {
+        try {
+            const token = request.headers.get('authorization');
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+            };
+            if (token) {
+                headers['Authorization'] = token;
+            }
+
+            const response = await fetch(
+                `${base}/api/clientes/${params.clienteId}/subclientes`,
+                {
+                    method: 'GET',
+                    cache: 'no-store',
+                    headers,
+                }
+            );
+
+            const data = await response.json();
+            return NextResponse.json(data, { status: response.status });
+        } catch (error) {
+            console.error('Error en proxy de subclientes GET:', error);
+            return NextResponse.json(
+                { error: 'Error al obtener subclientes' },
+                { status: 500 }
+            );
+        }
     }
-  }
-  return NextResponse.json(
-    {
-      error:
-        'Este endpoint de Next.js no está activo. Configure BACKEND_API_BASE_URL para proxy al backend Flask (ruta /api/clientes/:clienteId/subclientes).',
-    },
-    { status: 503 }
-  );
+
+    return NextResponse.json(
+        { error: 'Backend URL no configurada' },
+        { status: 500 }
+    );
 }
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { clienteId: string } }
+    request: NextRequest,
+    { params }: { params: { clienteId: string } }
 ) {
-  const base = process.env.BACKEND_API_BASE_URL;
-  if (base) {
-    try {
-      const { clienteId } = params;
-      const body = await request.json();
-      const authHeader = request.headers.get('authorization');
-      const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-      };
-      if (authHeader) {
-        headers['Authorization'] = authHeader;
-      }
-      const resp = await fetch(`${base}/api/clientes/${clienteId}/subclientes`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      });
-      if (!resp.ok) {
-        const text = await resp.text();
-        return NextResponse.json({ error: 'Error al crear subcliente', details: text }, { status: resp.status });
-      }
-      const data = await resp.json();
-      return NextResponse.json(data);
-    } catch (e: any) {
-      return NextResponse.json({ error: 'No se pudo conectar al backend de subclientes' }, { status: 502 });
-    }
-  }
-  return NextResponse.json(
-    {
-      error:
-        'Este endpoint de Next.js no está activo. Configure BACKEND_API_BASE_URL para proxy al backend Flask (ruta /api/clientes/:clienteId/subclientes).',
-    },
-    { status: 503 }
-  );
-}
+    const base = process.env.BACKEND_API_BASE_URL;
+    if (base) {
+        try {
+            const body = await request.json();
+            const token = request.headers.get('authorization');
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+            };
+            if (token) {
+                headers['Authorization'] = token;
+            }
 
+            const response = await fetch(
+                `${base}/api/clientes/${params.clienteId}/subclientes`,
+                {
+                    method: 'POST',
+                    cache: 'no-store',
+                    headers,
+                    body: JSON.stringify(body),
+                }
+            );
+
+            const data = await response.json();
+            return NextResponse.json(data, { status: response.status });
+        } catch (error) {
+            console.error('Error en proxy de subclientes POST:', error);
+            return NextResponse.json(
+                { error: 'Error al crear subcliente' },
+                { status: 500 }
+            );
+        }
+    }
+
+    return NextResponse.json(
+        { error: 'Backend URL no configurada' },
+        { status: 500 }
+    );
+}
