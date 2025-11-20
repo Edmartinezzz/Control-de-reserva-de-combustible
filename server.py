@@ -6,8 +6,19 @@ import jwt
 from datetime import datetime, timedelta
 from functools import wraps
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.environ.get('DATA_DIR', '/data')
+
+if DATA_DIR and os.path.isdir(DATA_DIR):
+    DEFAULT_DB_PATH = os.path.join(DATA_DIR, 'gas_delivery.db')
+else:
+    DEFAULT_DB_PATH = os.path.join(BASE_DIR, 'gas_delivery.db')
+
+DB_PATH = os.environ.get('DB_PATH', DEFAULT_DB_PATH)
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'tu_clave_secreta_muy_segura'  # En producción, usa una variable de entorno
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'tu_clave_secreta_muy_segura')  # En producción, usa una variable de entorno
 
 # Ruta raíz para health check
 @app.route('/', methods=['GET'])
@@ -44,7 +55,7 @@ def after_request(response):
 # Configuración de la base de datos
 def get_db():
     if 'db' not in g:
-        g.db = sqlite3.connect('gas_delivery.db')
+        g.db = sqlite3.connect(DB_PATH)
         g.db.row_factory = sqlite3.Row
     return g.db
 
@@ -170,6 +181,11 @@ def init_db():
         
         try:
             cursor.execute('ALTER TABLE retiros ADD COLUMN tipo_combustible TEXT DEFAULT "gasoil"')
+        except: pass
+
+        try:
+            cursor.execute('ALTER TABLE retiros ADD COLUMN hora TEXT DEFAULT "00:00:00"')
+            cursor.execute('UPDATE retiros SET hora = "00:00:00" WHERE hora IS NULL OR hora = ""')
         except: pass
         
         db.commit()

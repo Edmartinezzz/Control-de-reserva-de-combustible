@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: despacho-gas-backend
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT --timeout 120 server:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: FLASK_ENV
+        value: production
+      - key: DATA_DIR
+        value: /opt/render/project/src
+      - key: DB_PATH
+        value: /opt/render/project/src/gas_delivery.db
+      - key: PORT
+        fromService:
+          type: web
+          name: despacho-gas-backend
+          property: port
+    healthCheckPath: /
+
