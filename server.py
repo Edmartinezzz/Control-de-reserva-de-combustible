@@ -319,6 +319,61 @@ def login():
         print(f"Error en el login: {str(e)}")
         return jsonify({'error': 'Error en el servidor'}), 500
 
+# Login de clientes (sin autenticación requerida)
+@app.route('/api/clientes/login', methods=['POST'])
+def login_cliente():
+    try:
+        data = request.json
+        cedula = data.get('cedula')
+        
+        if not cedula:
+            return jsonify({'error': 'La cédula es requerida'}), 400
+        
+        db = get_db()
+        cursor = db.cursor()
+        
+        cursor.execute('SELECT * FROM clientes WHERE cedula = ? AND activo = 1', (cedula,))
+        cliente = cursor.fetchone()
+        
+        if not cliente:
+            return jsonify({'error': 'Cliente no encontrado o inactivo'}), 404
+        
+        cliente_dict = dict(cliente)
+        
+        # Generar token JWT
+        token = jwt.encode(
+            {
+                'id': cliente_dict['id'],
+                'nombre': cliente_dict['nombre'],
+                'cedula': cliente_dict['cedula'],
+                'tipo': 'cliente'
+            },
+            app.config['SECRET_KEY'],
+            algorithm='HS256'
+        )
+        
+        # Devolver información del cliente
+        return jsonify({
+            'token': token,
+            'cliente': {
+                'id': cliente_dict['id'],
+                'nombre': cliente_dict['nombre'],
+                'cedula': cliente_dict['cedula'],
+                'telefono': cliente_dict.get('telefono'),
+                'categoria': cliente_dict.get('categoria'),
+                'placa': cliente_dict.get('placa'),
+                'litros_disponibles': cliente_dict.get('litros_disponibles', 0),
+                'litros_mes': cliente_dict.get('litros_mes', 0),
+                'litros_disponibles_gasolina': cliente_dict.get('litros_disponibles_gasolina', 0),
+                'litros_disponibles_gasoil': cliente_dict.get('litros_disponibles_gasoil', 0),
+                'litros_mes_gasolina': cliente_dict.get('litros_mes_gasolina', 0),
+                'litros_mes_gasoil': cliente_dict.get('litros_mes_gasoil', 0)
+            }
+        })
+    except Exception as e:
+        print(f"Error en autenticación de cliente: {e}")
+        return jsonify({'error': 'Error en el servidor'}), 500
+
 # Rutas de clientes
 @app.route('/api/clientes', methods=['GET'])
 @token_required
@@ -886,6 +941,34 @@ def reset_litros():
         return jsonify({'error': str(e)}), 500
 
 # Rutas de inventario
+@app.route('/api/inventario/estado', methods=['GET'])
+def obtener_estado_inventario():
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute('SELECT tipo_combustible, litros_disponibles FROM inventario ORDER BY id DESC')
+        inventarios = cursor.fetchall()
+        
+        # Obtener el último registro de cada tipo de combustible
+        estado_inventario = {}
+        tipos_vistos = set()
+        for inv in inventarios:
+            tipo = inv['tipo_combustible']
+            if tipo not in tipos_vistos:
+                estado_inventario[tipo] = inv['litros_disponibles']
+                tipos_vistos.add(tipo)
+        
+        disponible = any(litros > 0 for litros in estado_inventario.values())
+        
+        return jsonify({
+            'inventario': estado_inventario,
+            'disponible': disponible
+        })
+    except Exception as e:
+        print(f"Error al obtener estado del inventario: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
 @app.route('/api/inventario', methods=['GET'])
 @token_required
 def obtener_inventario():
