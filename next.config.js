@@ -45,7 +45,7 @@ const nextConfig = {
   },
 
   async rewrites() {
-    let apiBase = process.env.BACKEND_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
+    let apiBase = process.env.BACKEND_API_BASE_URL;
 
     console.log('Build-time BACKEND_API_BASE_URL:', apiBase);
 

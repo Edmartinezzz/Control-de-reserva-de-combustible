@@ -5,7 +5,7 @@ const nextConfig = {
     typedRoutes: true
   },
   async rewrites() {
-    const apiBase = process.env.BACKEND_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
+    const apiBase = process.env.BACKEND_API_BASE_URL;
     if (!apiBase) return [];
     return [
       {

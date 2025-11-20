@@ -25,4 +25,3 @@ export function Events({ month, items }: { month: string; items: Event[] }) {
 
 
 
-
