@@ -537,6 +537,117 @@ def obtener_tickets_cliente(cliente_id):
         print(f"Error al obtener tickets del cliente: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
+@app.route('/api/clientes/<int:cliente_id>/subclientes', methods=['GET'])
+@token_required
+def obtener_subclientes(cliente_id):
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        # Verificar que el cliente padre existe
+        cursor.execute('SELECT id, nombre FROM clientes WHERE id = ? AND activo = 1', (cliente_id,))
+        cliente_padre = cursor.fetchone()
+        if not cliente_padre:
+            return jsonify({'error': 'Cliente padre no encontrado'}), 404
+        
+        cursor.execute('''
+            SELECT id, cliente_padre_id, nombre, cedula, placa,
+                   litros_mes_gasolina, litros_mes_gasoil,
+                   litros_disponibles_gasolina, litros_disponibles_gasoil,
+                   activo, created_at, updated_at
+            FROM subclientes
+            WHERE cliente_padre_id = ? AND activo = 1
+            ORDER BY nombre ASC
+        ''', (cliente_id,))
+        
+        subclientes = [dict(row) for row in cursor.fetchall()]
+        return jsonify(subclientes)
+    except Exception as e:
+        print(f"Error al obtener subclientes: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
+@app.route('/api/clientes/<int:cliente_id>/subclientes', methods=['POST'])
+@token_required
+def crear_subcliente(cliente_id):
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        data = request.json
+        nombre = data.get('nombre')
+        cedula = data.get('cedula')
+        placa = data.get('placa')
+        litros_mes_gasolina = float(data.get('litros_mes_gasolina', 0))
+        litros_mes_gasoil = float(data.get('litros_mes_gasoil', 0))
+        
+        if not nombre:
+            return jsonify({'error': 'El nombre del subcliente es requerido'}), 400
+        
+        # Verificar cliente padre
+        cursor.execute('SELECT id, nombre, litros_mes_gasolina, litros_mes_gasoil FROM clientes WHERE id = ? AND activo = 1', (cliente_id,))
+        cliente_padre = cursor.fetchone()
+        if not cliente_padre:
+            return jsonify({'error': 'Cliente padre no encontrado'}), 404
+        
+        cliente_padre_dict = dict(cliente_padre)
+        
+        # Obtener suma actual de litros asignados a subclientes
+        cursor.execute('''
+            SELECT 
+                COALESCE(SUM(litros_mes_gasolina), 0) AS total_gasolina,
+                COALESCE(SUM(litros_mes_gasoil), 0) AS total_gasoil
+            FROM subclientes
+            WHERE cliente_padre_id = ? AND activo = 1
+        ''', (cliente_id,))
+        sumas = cursor.fetchone()
+        
+        total_gasolina_asignado = (sumas['total_gasolina'] if sumas else 0) + litros_mes_gasolina
+        total_gasoil_asignado = (sumas['total_gasoil'] if sumas else 0) + litros_mes_gasoil
+        
+        # Validar que no exceda los litros mensuales del cliente padre
+        padre_gasolina_mes = cliente_padre_dict.get('litros_mes_gasolina', 0) or 0
+        padre_gasoil_mes = cliente_padre_dict.get('litros_mes_gasoil', 0) or 0
+        
+        if total_gasolina_asignado > padre_gasolina_mes or total_gasoil_asignado > padre_gasoil_mes:
+            return jsonify({
+                'error': 'Los litros asignados a subclientes exceden los litros mensuales del cliente padre',
+                'padre_gasolina': padre_gasolina_mes,
+                'padre_gasoil': padre_gasoil_mes,
+                'asignado_gasolina': total_gasolina_asignado,
+                'asignado_gasoil': total_gasoil_asignado
+            }), 400
+        
+        # Crear subcliente
+        cursor.execute('''
+            INSERT INTO subclientes (
+                cliente_padre_id, nombre, cedula, placa,
+                litros_mes_gasolina, litros_mes_gasoil,
+                litros_disponibles_gasolina, litros_disponibles_gasoil,
+                activo
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        ''', (
+            cliente_id,
+            nombre,
+            cedula,
+            placa,
+            litros_mes_gasolina,
+            litros_mes_gasoil,
+            litros_mes_gasolina,  # litros_disponibles inicial = litros_mes
+            litros_mes_gasoil     # litros_disponibles inicial = litros_mes
+        ))
+        
+        db.commit()
+        subcliente_id = cursor.lastrowid
+        
+        return jsonify({
+            'message': 'Subcliente creado exitosamente',
+            'subclienteId': subcliente_id
+        }), 201
+    except Exception as e:
+        db.rollback()
+        print(f"Error al crear subcliente: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
 @app.route('/api/clientes/telefono/<telefono>', methods=['GET'])
 def obtener_cliente_por_telefono(telefono):
     db = get_db()
