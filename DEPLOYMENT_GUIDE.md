@@ -152,7 +152,8 @@ Vercel alojará tu aplicación Next.js.
    Value: https://TU-URL-RAILWAY.railway.app
    ```
    
-   > **Importante:** Reemplaza `TU-URL-RAILWAY.railway.app` con la URL que copiaste en el Paso 3.5
+   > **Importante:** Reemplaza `TU-URL-RAILWAY.railway.app` con la URL que copiaste en el Paso 3.5.
+   > **Nota:** Si sigues teniendo problemas de conexión, agrega también la variable `NEXT_PUBLIC_API_BASE_URL` con el mismo valor.
 
 3. Click en **Deploy**
 
