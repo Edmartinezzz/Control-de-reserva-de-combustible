@@ -139,6 +139,24 @@ def init_db():
         ''')
         
         cursor.execute('''
+            CREATE TABLE IF NOT EXISTS subclientes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente_padre_id INTEGER NOT NULL,
+                nombre TEXT NOT NULL,
+                cedula TEXT,
+                placa TEXT,
+                litros_mes_gasolina REAL DEFAULT 0,
+                litros_mes_gasoil REAL DEFAULT 0,
+                litros_disponibles_gasolina REAL DEFAULT 0,
+                litros_disponibles_gasoil REAL DEFAULT 0,
+                activo BOOLEAN DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (cliente_padre_id) REFERENCES clientes (id)
+            )
+        ''')
+        
+        cursor.execute('''
             CREATE TABLE IF NOT EXISTS inventario (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 tipo_combustible TEXT NOT NULL CHECK(tipo_combustible IN ('gasoil', 'gasolina')),
