@@ -266,10 +266,27 @@ def token_required(f):
             return jsonify({'message': 'Token no proporcionado'}), 403
         try:
             data = jwt.decode(token.split()[1], app.config['SECRET_KEY'], algorithms=['HS256'])
-            g.usuario_actual = data['usuario']
-            g.usuario_id = data['id']
-            g.es_admin = data['es_admin']
-        except:
+            
+            # Verificar si es token de admin o cliente
+            if 'es_admin' in data:
+                # Token de administrador
+                g.usuario_actual = data['usuario']
+                g.usuario_id = data['id']
+                g.es_admin = data['es_admin']
+                g.es_cliente = False
+                g.cliente_id = None
+            elif 'tipo' in data and data['tipo'] == 'cliente':
+                # Token de cliente
+                g.usuario_actual = data.get('nombre', data.get('cedula'))
+                g.usuario_id = None
+                g.es_admin = False
+                g.es_cliente = True
+                g.cliente_id = data['id']
+            else:
+                return jsonify({'message': 'Token inválido'}), 403
+                
+        except Exception as e:
+            print(f"Error al decodificar token: {e}")
             return jsonify({'message': 'Token inválido'}), 403
         return f(*args, **kwargs)
     return decorated
@@ -544,6 +561,10 @@ def obtener_subclientes(cliente_id):
     cursor = db.cursor()
     
     try:
+        # Si es cliente, solo puede ver sus propios subclientes
+        if g.es_cliente and g.cliente_id != cliente_id:
+            return jsonify({'error': 'No autorizado'}), 403
+        
         # Verificar que el cliente padre existe
         cursor.execute('SELECT id, nombre FROM clientes WHERE id = ? AND activo = 1', (cliente_id,))
         cliente_padre = cursor.fetchone()
@@ -573,6 +594,10 @@ def crear_subcliente(cliente_id):
     cursor = db.cursor()
     
     try:
+        # Si es cliente, solo puede crear subclientes para sí mismo
+        if g.es_cliente and g.cliente_id != cliente_id:
+            return jsonify({'error': 'No autorizado'}), 403
+        
         data = request.json
         nombre = data.get('nombre')
         cedula = data.get('cedula')
