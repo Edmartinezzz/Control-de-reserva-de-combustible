@@ -110,6 +110,19 @@ def init_db():
             )
         ''')
         
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS inventario (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tipo_combustible TEXT NOT NULL CHECK(tipo_combustible IN ('gasoil', 'gasolina')),
+                litros_ingresados REAL NOT NULL,
+                litros_disponibles REAL NOT NULL,
+                fecha_ingreso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                usuario_id INTEGER,
+                observaciones TEXT,
+                FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
+            )
+        ''')
+        
         # Inicializar configuración si no existe
         cursor.execute('SELECT * FROM sistema_config WHERE id = 1')
         if not cursor.fetchone():
@@ -640,6 +653,127 @@ def reset_litros():
         changes = cursor.rowcount
         db.commit()
         return jsonify({'message': 'Litros reseteados exitosamente', 'clientes_actualizados': changes})
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+
+# Rutas de inventario
+@app.route('/api/inventario', methods=['GET'])
+@token_required
+def obtener_inventario():
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        # Obtener el último registro de cada tipo de combustible
+        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasoil',))
+        gasoil = cursor.fetchone()
+        
+        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasolina',))
+        gasolina = cursor.fetchone()
+        
+        # Devolver un array con ambos tipos
+        inventario = []
+        if gasoil:
+            inventario.append(dict(gasoil))
+        if gasolina:
+            inventario.append(dict(gasolina))
+        
+        return jsonify(inventario)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/inventario/historial', methods=['GET'])
+@token_required
+def obtener_historial_inventario():
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT i.*, u.usuario as usuario_nombre 
+            FROM inventario i 
+            LEFT JOIN usuarios u ON i.usuario_id = u.id 
+            ORDER BY i.fecha_ingreso DESC
+        ''')
+        historial = [dict(row) for row in cursor.fetchall()]
+        return jsonify(historial)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/inventario', methods=['POST'])
+@token_required
+def crear_inventario():
+    if not g.es_admin:
+        return jsonify({'error': 'No autorizado'}), 403
+        
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        data = request.json
+        tipo_combustible = str(data.get('tipo_combustible', '')).lower().strip()
+        litros_ingresados = float(data.get('litros_ingresados', 0))
+        observaciones = data.get('observaciones', '')
+        
+        if tipo_combustible not in ['gasoil', 'gasolina']:
+            return jsonify({'error': 'Tipo de combustible inválido. Use "gasoil" o "gasolina"'}), 400
+        
+        if litros_ingresados <= 0:
+            return jsonify({'error': 'Ingrese una cantidad válida de litros'}), 400
+        
+        # Obtener el inventario actual para el tipo de combustible específico
+        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', (tipo_combustible,))
+        inventario_actual = cursor.fetchone()
+        
+        litros_disponibles = (dict(inventario_actual)['litros_disponibles'] if inventario_actual else 0) + litros_ingresados
+        
+        # Insertar nuevo registro de inventario
+        cursor.execute('''
+            INSERT INTO inventario (tipo_combustible, litros_ingresados, litros_disponibles, usuario_id, observaciones)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (tipo_combustible, litros_ingresados, litros_disponibles, g.usuario_id, observaciones))
+        
+        db.commit()
+        return jsonify({
+            'id': cursor.lastrowid,
+            'litros_ingresados': litros_ingresados,
+            'litros_disponibles': litros_disponibles,
+            'usuario_id': g.usuario_id,
+            'observaciones': observaciones
+        }), 201
+    except Exception as e:
+        db.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/inventario/reset', methods=['POST'])
+@token_required
+def resetear_inventario():
+    if not g.es_admin:
+        return jsonify({'error': 'No autorizado'}), 403
+        
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        # Obtener el último registro de gasoil
+        cursor.execute('SELECT id FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasoil',))
+        gasoil_record = cursor.fetchone()
+        if gasoil_record:
+            cursor.execute('UPDATE inventario SET litros_disponibles = 0 WHERE id = ?', (dict(gasoil_record)['id'],))
+        
+        # Obtener el último registro de gasolina
+        cursor.execute('SELECT id FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasolina',))
+        gasolina_record = cursor.fetchone()
+        if gasolina_record:
+            cursor.execute('UPDATE inventario SET litros_disponibles = 0 WHERE id = ?', (dict(gasolina_record)['id'],))
+        
+        db.commit()
+        return jsonify({
+            'message': 'Inventario reseteado a 0 litros',
+            'gasoil': 0,
+            'gasolina': 0
+        })
     except Exception as e:
         db.rollback()
         return jsonify({'error': str(e)}), 500
