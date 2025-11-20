@@ -106,7 +106,35 @@ def init_db():
             CREATE TABLE IF NOT EXISTS sistema_config (
                 id INTEGER PRIMARY KEY CHECK(id = 1),
                 retiros_bloqueados INTEGER NOT NULL DEFAULT 0,
+                limite_diario_gasolina REAL DEFAULT 2000,
                 fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS agendamientos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                cliente_id INTEGER NOT NULL,
+                subcliente_id INTEGER,
+                tipo_combustible TEXT NOT NULL DEFAULT 'gasolina',
+                litros REAL NOT NULL,
+                fecha_agendada TEXT NOT NULL,
+                codigo_ticket INTEGER,
+                estado TEXT NOT NULL DEFAULT 'pendiente',
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (cliente_id) REFERENCES clientes (id),
+                FOREIGN KEY (subcliente_id) REFERENCES clientes (id)
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS limites_diarios (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fecha TEXT NOT NULL,
+                tipo_combustible TEXT NOT NULL DEFAULT 'gasolina',
+                litros_agendados REAL DEFAULT 0,
+                litros_procesados REAL DEFAULT 0,
+                UNIQUE(fecha, tipo_combustible)
             )
         ''')
         
@@ -199,6 +227,10 @@ def init_db():
         try:
             cursor.execute('ALTER TABLE retiros ADD COLUMN hora TEXT DEFAULT "00:00:00"')
             cursor.execute('UPDATE retiros SET hora = "00:00:00" WHERE hora IS NULL OR hora = ""')
+        except: pass
+        
+        try:
+            cursor.execute('ALTER TABLE sistema_config ADD COLUMN limite_diario_gasolina REAL DEFAULT 2000')
         except: pass
         
         db.commit()
@@ -629,7 +661,95 @@ def obtener_estadisticas_retiros():
         print(f"Error stats: {e}")
         return jsonify({'error': str(e)}), 500
 
+# Rutas de agendamientos
+@app.route('/api/agendamientos/dia/<fecha>', methods=['GET'])
+def obtener_agendamientos_dia(fecha):
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT 
+                a.id,
+                a.cliente_id,
+                c.nombre as cliente_nombre,
+                c.cedula,
+                c.telefono,
+                c.placa,
+                a.tipo_combustible,
+                a.litros,
+                a.fecha_agendada,
+                a.codigo_ticket,
+                a.estado,
+                a.fecha_creacion,
+                a.subcliente_id,
+                s.nombre AS subcliente_nombre,
+                s.cedula AS subcliente_cedula,
+                s.placa AS subcliente_placa
+            FROM agendamientos a
+            JOIN clientes c ON a.cliente_id = c.id
+            LEFT JOIN clientes s ON a.subcliente_id = s.id
+            WHERE a.fecha_agendada = ?
+            ORDER BY a.codigo_ticket ASC
+        ''', (fecha,))
+        
+        agendamientos = [dict(row) for row in cursor.fetchall()]
+        return jsonify(agendamientos)
+    except Exception as e:
+        print(f"Error al obtener agendamientos: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
 # Rutas de sistema y administración
+@app.route('/api/sistema/limites', methods=['GET'])
+def obtener_limites():
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        from datetime import datetime, timedelta
+        
+        # Obtener configuración
+        cursor.execute('SELECT limite_diario_gasolina FROM sistema_config WHERE id = 1')
+        config = cursor.fetchone()
+        limite_diario = config['limite_diario_gasolina'] if config and config['limite_diario_gasolina'] else 2000
+        
+        # Fechas
+        hoy = datetime.now().strftime('%Y-%m-%d')
+        mañana = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+        
+        # Límites de hoy
+        cursor.execute('''
+            SELECT litros_agendados, litros_procesados 
+            FROM limites_diarios 
+            WHERE fecha = ? AND tipo_combustible = "gasolina"
+        ''', (hoy,))
+        limites_hoy = cursor.fetchone()
+        
+        # Límites de mañana
+        cursor.execute('''
+            SELECT litros_agendados 
+            FROM limites_diarios 
+            WHERE fecha = ? AND tipo_combustible = "gasolina"
+        ''', (mañana,))
+        limites_mañana = cursor.fetchone()
+        
+        return jsonify({
+            'limite_diario': limite_diario,
+            'hoy': {
+                'fecha': hoy,
+                'agendados': limites_hoy['litros_agendados'] if limites_hoy else 0,
+                'procesados': limites_hoy['litros_procesados'] if limites_hoy else 0
+            },
+            'mañana': {
+                'fecha': mañana,
+                'agendados': limites_mañana['litros_agendados'] if limites_mañana else 0,
+                'disponible': limite_diario - (limites_mañana['litros_agendados'] if limites_mañana else 0)
+            }
+        })
+    except Exception as e:
+        print(f"Error al obtener límites: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
 @app.route('/api/sistema/bloqueo', methods=['GET', 'POST'])
 @token_required
 def sistema_bloqueo():
