@@ -970,6 +970,73 @@ def obtener_agendamientos_dia(fecha):
         print(f"Error al obtener agendamientos: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
+@app.route('/api/agendamientos', methods=['POST'])
+@token_required
+def crear_agendamiento():
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        data = request.json
+        cliente_id = data.get('cliente_id')
+        tipo_combustible = data.get('tipo_combustible', 'gasolina')
+        litros = float(data.get('litros', 0))
+        subcliente_id = data.get('subcliente_id')
+        fecha_agendada = data.get('fecha_agendada')
+        
+        if not cliente_id or not litros or not fecha_agendada:
+            return jsonify({'error': 'Faltan datos requeridos'}), 400
+        
+        # Insertar agendamiento
+        cursor.execute('''
+            INSERT INTO agendamientos (
+                cliente_id, tipo_combustible, litros, fecha_agendada, 
+                subcliente_id, estado
+            ) VALUES (?, ?, ?, ?, ?, 'pendiente')
+        ''', (cliente_id, tipo_combustible, litros, fecha_agendada, subcliente_id))
+        
+        db.commit()
+        return jsonify({
+            'message': 'Agendamiento creado exitosamente',
+            'id': cursor.lastrowid
+        }), 201
+    except Exception as e:
+        db.rollback()
+        print(f"Error al crear agendamiento: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
+@app.route('/api/agendamientos/cliente/<int:cliente_id>', methods=['GET'])
+def obtener_agendamientos_cliente(cliente_id):
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT 
+                a.id,
+                a.cliente_id,
+                a.tipo_combustible,
+                a.litros,
+                a.fecha_agendada,
+                a.codigo_ticket,
+                a.estado,
+                a.fecha_creacion,
+                a.subcliente_id,
+                s.nombre AS subcliente_nombre,
+                s.cedula AS subcliente_cedula,
+                s.placa AS subcliente_placa
+            FROM agendamientos a
+            LEFT JOIN subclientes s ON a.subcliente_id = s.id
+            WHERE a.cliente_id = ?
+            ORDER BY a.fecha_agendada DESC, a.fecha_creacion DESC
+        ''', (cliente_id,))
+        
+        agendamientos = [dict(row) for row in cursor.fetchall()]
+        return jsonify(agendamientos)
+    except Exception as e:
+        print(f"Error al obtener agendamientos del cliente: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
+
 # Rutas de sistema y administración
 @app.route('/api/sistema/limites', methods=['GET'])
 def obtener_limites():
