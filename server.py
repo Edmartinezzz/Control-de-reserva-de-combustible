@@ -230,6 +230,10 @@ def init_db():
         except: pass
         
         try:
+            cursor.execute('ALTER TABLE retiros ADD COLUMN codigo_ticket INTEGER')
+        except: pass
+        
+        try:
             cursor.execute('ALTER TABLE sistema_config ADD COLUMN limite_diario_gasolina REAL DEFAULT 2000')
         except: pass
         
@@ -427,6 +431,38 @@ def obtener_cliente(cliente_id):
         return jsonify({'error': 'Cliente no encontrado'}), 404
     
     return jsonify(dict(cliente))
+
+@app.route('/api/clientes/<int:cliente_id>/tickets', methods=['GET'])
+@token_required
+def obtener_tickets_cliente(cliente_id):
+    db = get_db()
+    cursor = db.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT 
+                r.id,
+                r.litros,
+                r.tipo_combustible,
+                r.codigo_ticket,
+                r.fecha,
+                c.nombre as cliente_nombre,
+                c.cedula as cliente_cedula,
+                c.telefono as cliente_telefono,
+                c.placa as cliente_placa,
+                c.categoria as cliente_categoria
+            FROM retiros r
+            JOIN clientes c ON r.cliente_id = c.id
+            WHERE r.cliente_id = ?
+            ORDER BY r.fecha DESC
+            LIMIT 50
+        ''', (cliente_id,))
+        
+        tickets = [dict(row) for row in cursor.fetchall()]
+        return jsonify(tickets)
+    except Exception as e:
+        print(f"Error al obtener tickets del cliente: {e}")
+        return jsonify({'error': 'Error interno del servidor'}), 500
 
 @app.route('/api/clientes/telefono/<telefono>', methods=['GET'])
 def obtener_cliente_por_telefono(telefono):
