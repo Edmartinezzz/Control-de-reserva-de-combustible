@@ -58,7 +58,8 @@ def get_db():
             user=result.username,
             password=result.password,
             host=result.hostname,
-            port=result.port
+            port=result.port,
+            cursor_factory=psycopg2.extras.RealDictCursor
         )
         g.db.set_session(autocommit=False)
     return g.db
