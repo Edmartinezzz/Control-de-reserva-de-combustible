@@ -70,6 +70,58 @@ def close_db(error):
     if db is not None:
         db.close()
 
+def verificar_reset_diario():
+    try:
+        # Hora actual en Venezuela (UTC-4)
+        utc_now = datetime.utcnow()
+        venezuela_now = utc_now - timedelta(hours=4)
+        
+        # Si es antes de las 4:00 AM, no hacer nada
+        if venezuela_now.hour < 4:
+            return
+
+        db = get_db()
+        cursor = db.cursor()
+        
+        # Obtener fecha último reset
+        cursor.execute('SELECT fecha_ultimo_reset FROM sistema_config WHERE id = 1')
+        row = cursor.fetchone()
+        
+        if not row:
+            return
+            
+        ultimo_reset = row['fecha_ultimo_reset']
+        hoy_venezuela = venezuela_now.date()
+        
+        # Si ya se reseteó hoy, salir
+        if ultimo_reset and ultimo_reset >= hoy_venezuela:
+            return
+            
+        print(f"Ejecutando reset diario automático: {hoy_venezuela}")
+        
+        # Ejecutar reset
+        cursor.execute('''
+            UPDATE clientes 
+            SET litros_disponibles = litros_mes,
+                litros_disponibles_gasolina = litros_mes_gasolina,
+                litros_disponibles_gasoil = litros_mes_gasoil
+            WHERE activo = TRUE
+        ''')
+        
+        # Actualizar fecha último reset
+        cursor.execute('UPDATE sistema_config SET fecha_ultimo_reset = %s WHERE id = 1', (hoy_venezuela,))
+        
+        db.commit()
+        print("Reset diario completado.")
+        
+    except Exception as e:
+        print(f"Error en reset diario: {e}")
+        try:
+            db = get_db()
+            db.rollback()
+        except:
+            pass
+
 # Inicializar la base de datos
 def init_db():
     with app.app_context():
@@ -191,6 +243,31 @@ def init_db():
                 usuario_id INTEGER,
                 observaciones TEXT,
                 FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
+            )
+        ''')
+
+        # Agregar columna fecha_ultimo_reset si no existe
+        try:
+            cursor.execute('ALTER TABLE sistema_config ADD COLUMN fecha_ultimo_reset DATE')
+            db.commit()
+        except Exception:
+            db.rollback()
+            
+        # Inicializar fecha_ultimo_reset si es NULL
+        cursor.execute('UPDATE sistema_config SET fecha_ultimo_reset = CURRENT_DATE - INTERVAL \'1 day\' WHERE fecha_ultimo_reset IS NULL')
+        db.commit()
+
+        # Verificar si existe usuario admin
+        cursor.execute('SELECT * FROM usuarios WHERE usuario = %s', ('admin',))
+        if not cursor.fetchone():
+            # Crear usuario admin por defecto
+            hashed_password = 'admin_password_placeholder' # Debería ser hasheado
+            # Aquí deberíamos usar bcrypt pero para simplificar en init_db asumimos que se crea luego o manualmente
+            # Mejor no crear admin hardcodeado si no tenemos hash function aquí disponible fácilmente sin importar
+            pass
+            
+        db.commit()
+        print("✅ Base de datos PostgreSQL inicializada correctamente")
             )
         ''')
         
@@ -322,6 +399,7 @@ def login():
 # Login de clientes (sin autenticación requerida)
 @app.route('/api/clientes/login', methods=['POST'])
 def login_cliente():
+    verificar_reset_diario()
     try:
         data = request.json
         cedula = data.get('cedula')
@@ -468,6 +546,7 @@ def obtener_clientes_lista():
 @app.route('/api/clientes/<int:cliente_id>', methods=['GET'])
 @token_required
 def obtener_cliente(cliente_id):
+    verificar_reset_diario()
     db = get_db()
     cursor = db.cursor()
     
