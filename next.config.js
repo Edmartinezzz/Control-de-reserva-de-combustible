@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+// Last updated: 2025-11-21 16:38 - Dashboard UI changes
 const nextConfig = {
   reactStrictMode: true,
 
