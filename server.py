@@ -406,7 +406,7 @@ def obtener_clientes_simple():
             SELECT id, nombre, cedula, telefono, placa, categoria, subcategoria, 
                    litros_mes, litros_disponibles 
             FROM clientes 
-            WHERE activo = 1 
+            WHERE activo = TRUE 
             ORDER BY nombre ASC
         ''')
         clientes = [dict(row) for row in cursor.fetchall()]
@@ -848,7 +848,7 @@ def obtener_estadisticas_generales():
     
     try:
         # Total clientes activos
-        cursor.execute('SELECT COUNT(*) as total FROM clientes WHERE activo = 1')
+        cursor.execute('SELECT COUNT(*) as total FROM clientes WHERE activo = TRUE')
         total_clientes = cursor.fetchone()['total']
         
         # Total litros entregados (histórico)
