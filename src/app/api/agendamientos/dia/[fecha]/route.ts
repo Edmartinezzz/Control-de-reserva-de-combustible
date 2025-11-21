@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { fecha: string } }
+  { params }: { params: Promise<{ fecha: string }> }
 ) {
   const base = process.env.BACKEND_API_BASE_URL;
   if (base) {
     try {
-      const { fecha } = params;
+      const { fecha } = await params;
       const authHeader = request.headers.get('authorization');
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
