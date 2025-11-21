@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { clienteId: string } }
+  { params }: { params: Promise<{ clienteId: string }> }
 ) {
   const base = process.env.BACKEND_API_BASE_URL;
   if (base) {
     try {
-      const { clienteId } = params;
+      const { clienteId } = await params;
       const authHeader = request.headers.get('authorization');
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
@@ -40,12 +40,12 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { clienteId: string } }
+  { params }: { params: Promise<{ clienteId: string }> }
 ) {
   const base = process.env.BACKEND_API_BASE_URL;
   if (base) {
     try {
-      const { clienteId } = params;
+      const { clienteId } = await params;
       const body = await request.json();
       const authHeader = request.headers.get('authorization');
       const headers: HeadersInit = {
