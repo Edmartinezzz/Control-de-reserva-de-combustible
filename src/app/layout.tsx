@@ -9,7 +9,7 @@ import { QueryProvider } from '@/providers/QueryProvider';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import ThemeToggleButton from '@/components/ui/ThemeToggleButton';
 import { Toaster } from 'react-hot-toast';
-import { Analytics } from '@vercel/analytics/react';
+import { Analytics } from '@vercel/analytics/next';
 
 const inter = Inter({ subsets: ['latin'] });
 
