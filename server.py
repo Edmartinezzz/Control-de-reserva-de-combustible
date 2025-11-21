@@ -75,11 +75,8 @@ def verificar_reset_diario():
         # Hora actual en Venezuela (UTC-4)
         utc_now = datetime.utcnow()
         venezuela_now = utc_now - timedelta(hours=4)
+        hoy_venezuela = venezuela_now.date()
         
-        # Si es antes de las 4:00 AM, no hacer nada
-        if venezuela_now.hour < 4:
-            return
-
         db = get_db()
         cursor = db.cursor()
         
@@ -88,31 +85,37 @@ def verificar_reset_diario():
         row = cursor.fetchone()
         
         if not row:
+            print("No se encontró configuración del sistema")
             return
-            
-        ultimo_reset = row['fecha_ultimo_reset']
-        hoy_venezuela = venezuela_now.date()
         
-        # Si ya se reseteó hoy, salir
+        ultimo_reset = row['fecha_ultimo_reset']
+        
+        # Convertir ultimo_reset a date si es datetime
+        if ultimo_reset and hasattr(ultimo_reset, 'date'):
+            ultimo_reset = ultimo_reset.date()
+        
+        # Si ya se reseteó hoy, no hacer nada
         if ultimo_reset and ultimo_reset >= hoy_venezuela:
             return
+        
+        # Solo resetear si es después de las 4:00 AM Y no se ha reseteado hoy
+        if venezuela_now.hour >= 4:
+            print(f"Ejecutando reset diario automático: {hoy_venezuela} a las {venezuela_now.hour}:{venezuela_now.minute}")
             
-        print(f"Ejecutando reset diario automático: {hoy_venezuela}")
-        
-        # Ejecutar reset
-        cursor.execute('''
-            UPDATE clientes 
-            SET litros_disponibles = litros_mes,
-                litros_disponibles_gasolina = litros_mes_gasolina,
-                litros_disponibles_gasoil = litros_mes_gasoil
-            WHERE activo = TRUE
-        ''')
-        
-        # Actualizar fecha último reset
-        cursor.execute('UPDATE sistema_config SET fecha_ultimo_reset = %s WHERE id = 1', (hoy_venezuela,))
-        
-        db.commit()
-        print("Reset diario completado.")
+            # Ejecutar reset
+            cursor.execute('''
+                UPDATE clientes 
+                SET litros_disponibles = litros_mes,
+                    litros_disponibles_gasolina = litros_mes_gasolina,
+                    litros_disponibles_gasoil = litros_mes_gasoil
+                WHERE activo = TRUE
+            ''')
+            
+            # Actualizar fecha último reset
+            cursor.execute('UPDATE sistema_config SET fecha_ultimo_reset = %s WHERE id = 1', (hoy_venezuela,))
+            
+            db.commit()
+            print(f"Reset diario completado. {cursor.rowcount} clientes actualizados.")
         
     except Exception as e:
         print(f"Error en reset diario: {e}")
