@@ -437,7 +437,7 @@ def obtener_clientes_lista():
                 MAX(r.fecha) as ultimo_retiro
             FROM clientes c
             LEFT JOIN retiros r ON c.id = r.cliente_id
-            WHERE c.activo = 1 
+            WHERE c.activo = TRUE 
             GROUP BY c.id
             ORDER BY c.nombre ASC
         ''')
@@ -478,7 +478,7 @@ def obtener_cliente(cliente_id):
                 AND date('now', 'start of month') <= date(fecha) 
                 AND date(fecha) <= date('now', 'start of month', '+1 month', '-1 day')) as litros_retirados_mes
         FROM clientes c 
-        WHERE c.id = %s AND c.activo = 1
+        WHERE c.id = %s AND c.activo = TRUE
     ''', (cliente_id,))
     
     cliente = cursor.fetchone()
@@ -531,7 +531,7 @@ def obtener_subclientes(cliente_id):
             return jsonify({'error': 'No autorizado'}), 403
         
         # Verificar que el cliente padre existe
-        cursor.execute('SELECT id, nombre FROM clientes WHERE id = %s AND activo = 1', (cliente_id,))
+        cursor.execute('SELECT id, nombre FROM clientes WHERE id = %s AND activo = TRUE', (cliente_id,))
         cliente_padre = cursor.fetchone()
         if not cliente_padre:
             return jsonify({'error': 'Cliente padre no encontrado'}), 404
@@ -542,7 +542,7 @@ def obtener_subclientes(cliente_id):
                    litros_disponibles_gasolina, litros_disponibles_gasoil,
                    activo, created_at, updated_at
             FROM subclientes
-            WHERE cliente_padre_id = %s AND activo = 1
+            WHERE cliente_padre_id = %s AND activo = TRUE
             ORDER BY nombre ASC
         ''', (cliente_id,))
         
