@@ -29,10 +29,9 @@ export default function ClienteDashboard() {
   const [tipoCombustibleAgotado, setTipoCombustibleAgotado] = useState('');
   const [showSubclienteModal, setShowSubclienteModal] = useState(false);
 
-  // Estado para subclientes (trabajadores) cuando el cliente es institucional (ej. Gobernación)
+  // Todos los clientes pueden tener trabajadores (subclientes)
   const [subclienteSeleccionadoId, setSubclienteSeleccionadoId] = useState<number | null>(null);
-
-  const esInstitucional = cliente?.categoria === 'Gobernación';
+  const esInstitucional = true;
 
   // Obtener agendamientos del cliente
   const { data: agendamientos = [], refetch: refetchAgendamientos } = useQuery({
