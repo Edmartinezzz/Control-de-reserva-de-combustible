@@ -136,8 +136,8 @@ export default function ClienteDashboard() {
 
     // Verificar litros disponibles del cliente según el tipo de combustible
     const litrosDisponiblesTipo = tipoCombustible === 'gasolina'
-      ? (cliente?.litros_disponibles_gasolina || cliente?.litros_disponibles || 0)
-      : (cliente?.litros_disponibles_gasoil || cliente?.litros_disponibles || 0);
+      ? (cliente?.litros_disponibles_gasolina ?? cliente?.litros_disponibles ?? 0)
+      : (cliente?.litros_disponibles_gasoil ?? cliente?.litros_disponibles ?? 0);
 
     if (litrosNum > litrosDisponiblesTipo) {
       toast.error(`No tiene suficientes litros de ${tipoCombustible} disponibles`);
@@ -173,10 +173,10 @@ export default function ClienteDashboard() {
 
         if (tipoCombustible === 'gasolina') {
           clienteActualizado.litros_disponibles_gasolina =
-            (cliente.litros_disponibles_gasolina || cliente.litros_disponibles || 0) - litrosNum;
+            (cliente.litros_disponibles_gasolina ?? cliente.litros_disponibles ?? 0) - litrosNum;
         } else {
           clienteActualizado.litros_disponibles_gasoil =
-            (cliente.litros_disponibles_gasoil || cliente.litros_disponibles || 0) - litrosNum;
+            (cliente.litros_disponibles_gasoil ?? cliente.litros_disponibles ?? 0) - litrosNum;
         }
 
         updateCliente(clienteActualizado);
@@ -268,10 +268,10 @@ export default function ClienteDashboard() {
               <h3 className="text-lg font-semibold text-gray-800">Gasolina Disponible</h3>
             </div>
             <p className="text-3xl font-bold text-blue-600">
-              {(cliente.litros_disponibles_gasolina || cliente.litros_disponibles || 0).toFixed(2)} <span className="text-lg">litros</span>
+              {(cliente.litros_disponibles_gasolina ?? cliente.litros_disponibles ?? 0).toFixed(2)} <span className="text-lg">litros</span>
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              de {(cliente.litros_mes_gasolina || cliente.litros_mes || 0).toFixed(2)} litros mensuales
+              de {(cliente.litros_mes_gasolina ?? cliente.litros_mes ?? 0).toFixed(2)} litros mensuales
             </p>
           </div>
 
@@ -283,10 +283,10 @@ export default function ClienteDashboard() {
               <h3 className="text-lg font-semibold text-gray-800">Gasoil Disponible</h3>
             </div>
             <p className="text-3xl font-bold text-green-600">
-              {(cliente.litros_disponibles_gasoil || 0).toFixed(2)} <span className="text-lg">litros</span>
+              {(cliente.litros_disponibles_gasoil ?? 0).toFixed(2)} <span className="text-lg">litros</span>
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              de {(cliente.litros_mes_gasoil || 0).toFixed(2)} litros mensuales
+              de {(cliente.litros_mes_gasoil ?? 0).toFixed(2)} litros mensuales
             </p>
           </div>
 
@@ -477,8 +477,8 @@ export default function ClienteDashboard() {
                 placeholder={estadoInventario?.disponible ? "Ingrese cantidad" : "Sin inventario disponible"}
                 min="1"
                 max={tipoCombustible === 'gasolina'
-                  ? (cliente?.litros_disponibles_gasolina || cliente?.litros_disponibles || 0)
-                  : (cliente?.litros_disponibles_gasoil || cliente?.litros_disponibles || 0)
+                  ? (cliente?.litros_disponibles_gasolina ?? cliente?.litros_disponibles ?? 0)
+                  : (cliente?.litros_disponibles_gasoil ?? cliente?.litros_disponibles ?? 0)
                 }
                 disabled={!estadoInventario?.disponible || (estadoInventario?.inventario?.[tipoCombustible] || 0) <= 0 || isLoading}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
