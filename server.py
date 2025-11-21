@@ -125,12 +125,31 @@ def init_db():
             )
         ''')
         
+        
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS sistema_config (
                 id INTEGER PRIMARY KEY CHECK(id = 1),
                 retiros_bloqueados INTEGER NOT NULL DEFAULT 0,
                 limite_diario_gasolina REAL DEFAULT 2000,
                 fecha_actualizacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS subclientes (
+                id SERIAL PRIMARY KEY,
+                cliente_padre_id INTEGER NOT NULL,
+                nombre VARCHAR(255) NOT NULL,
+                cedula VARCHAR(50),
+                placa VARCHAR(50),
+                litros_mes_gasolina REAL DEFAULT 0,
+                litros_mes_gasoil REAL DEFAULT 0,
+                litros_disponibles_gasolina REAL DEFAULT 0,
+                litros_disponibles_gasoil REAL DEFAULT 0,
+                activo BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (cliente_padre_id) REFERENCES clientes (id)
             )
         ''')
         
@@ -158,24 +177,6 @@ def init_db():
                 litros_agendados REAL DEFAULT 0,
                 litros_procesados REAL DEFAULT 0,
                 UNIQUE(fecha, tipo_combustible)
-            )
-        ''')
-        
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS subclientes (
-                id SERIAL PRIMARY KEY,
-                cliente_padre_id INTEGER NOT NULL,
-                nombre VARCHAR(255) NOT NULL,
-                cedula VARCHAR(50),
-                placa VARCHAR(50),
-                litros_mes_gasolina REAL DEFAULT 0,
-                litros_mes_gasoil REAL DEFAULT 0,
-                litros_disponibles_gasolina REAL DEFAULT 0,
-                litros_disponibles_gasoil REAL DEFAULT 0,
-                activo BOOLEAN DEFAULT TRUE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (cliente_padre_id) REFERENCES clientes (id)
             )
         ''')
         
