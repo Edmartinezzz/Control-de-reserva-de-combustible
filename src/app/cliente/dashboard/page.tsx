@@ -260,7 +260,7 @@ export default function ClienteDashboard() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-blue-50 p-6 rounded-lg">
             <div className="flex items-center mb-4">
               <div className="p-3 bg-blue-100 rounded-full mr-4">
@@ -291,18 +291,7 @@ export default function ClienteDashboard() {
             </p>
           </div>
 
-          <div className="bg-green-50 p-6 rounded-lg">
-            <div className="flex items-center mb-4">
-              <div className="p-3 bg-green-100 rounded-full mr-4">
-                <FiClock className="text-green-600 text-xl" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-800">Horario de Atención</h3>
-            </div>
-            <p className="text-2xl font-bold text-green-600">10:00 AM</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Los agendamientos se procesan automáticamente cada día
-            </p>
-          </div>
+
         </div>
 
         {/* Estado del Inventario - Sin Combustible */}
@@ -347,29 +336,7 @@ export default function ClienteDashboard() {
             </div>
           )}
 
-        {/* Información del Sistema - Combustible Disponible */}
-        {estadoInventario?.disponible && (estadoInventario?.inventario?.[tipoCombustible] || 0) > 0 && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-green-900 mb-2">🚀 Sistema de Agendamiento</h3>
-                <p className="text-green-700 text-sm">
-                  Su ticket será válido para el día siguiente.
-                </p>
-              </div>
-              <div className="text-right">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                  📦 {tipoCombustible}: {estadoInventario?.inventario?.[tipoCombustible] || 0}L
-                </span>
-                {(estadoInventario?.inventario?.[tipoCombustible] || 0) < 100 && (
-                  <p className="text-xs text-orange-600 mt-1 font-medium">
-                    ⚠️ Inventario bajo
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* Formulario de agendamiento */}
         <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
@@ -421,8 +388,8 @@ export default function ClienteDashboard() {
                                 setTipoCombustible('gasolina');
                               }}
                               className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium border ${isSelected && tipoCombustible === 'gasolina'
-                                  ? 'bg-blue-600 text-white border-blue-600'
-                                  : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
                                 }`}
                             >
                               <FiDroplet className="mr-1 h-3 w-3" />
@@ -435,8 +402,8 @@ export default function ClienteDashboard() {
                                 setTipoCombustible('gasoil');
                               }}
                               className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium border ${isSelected && tipoCombustible === 'gasoil'
-                                  ? 'bg-green-600 text-white border-green-600'
-                                  : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
+                                ? 'bg-green-600 text-white border-green-600'
+                                : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
                                 }`}
                             >
                               <FiTruck className="mr-1 h-3 w-3" />
@@ -469,8 +436,8 @@ export default function ClienteDashboard() {
                   type="button"
                   onClick={() => setTipoCombustible('gasolina')}
                   className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg border-2 transition-all duration-200 ${tipoCombustible === 'gasolina'
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                     }`}
                 >
                   <FiDroplet className="mr-2 h-5 w-5" />
@@ -481,8 +448,8 @@ export default function ClienteDashboard() {
                   type="button"
                   onClick={() => setTipoCombustible('gasoil')}
                   className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg border-2 transition-all duration-200 ${tipoCombustible === 'gasoil'
-                      ? 'border-green-500 bg-green-50 text-green-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    ? 'border-green-500 bg-green-50 text-green-700'
+                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
                     }`}
                 >
                   <FiTruck className="mr-2 h-5 w-5" />
@@ -659,10 +626,10 @@ export default function ClienteDashboard() {
                   </div>
                   <div className="text-right">
                     <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${agendamiento.estado === 'procesado'
-                        ? 'bg-green-100 text-green-800'
-                        : agendamiento.estado === 'pendiente'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                      ? 'bg-green-100 text-green-800'
+                      : agendamiento.estado === 'pendiente'
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-red-100 text-red-800'
                       }`}>
                       {agendamiento.estado === 'procesado' ? '✅ Procesado' :
                         agendamiento.estado === 'pendiente' ? '⏳ Pendiente' : '❌ Cancelado'}
