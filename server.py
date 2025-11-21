@@ -574,7 +574,7 @@ def crear_subcliente(cliente_id):
             return jsonify({'error': 'El nombre del subcliente es requerido'}), 400
         
         # Verificar cliente padre
-        cursor.execute('SELECT id, nombre, litros_mes_gasolina, litros_mes_gasoil FROM clientes WHERE id = %s AND activo = 1', (cliente_id,))
+        cursor.execute('SELECT id, nombre, litros_mes_gasolina, litros_mes_gasoil FROM clientes WHERE id = %s AND activo = TRUE', (cliente_id,))
         cliente_padre = cursor.fetchone()
         if not cliente_padre:
             return jsonify({'error': 'Cliente padre no encontrado'}), 404
@@ -587,7 +587,7 @@ def crear_subcliente(cliente_id):
                 COALESCE(SUM(litros_mes_gasolina), 0) AS total_gasolina,
                 COALESCE(SUM(litros_mes_gasoil), 0) AS total_gasoil
             FROM subclientes
-            WHERE cliente_padre_id = %s AND activo = 1
+            WHERE cliente_padre_id = %s AND activo = TRUE
         ''', (cliente_id,))
         sumas = cursor.fetchone()
         
@@ -614,7 +614,7 @@ def crear_subcliente(cliente_id):
                 litros_mes_gasolina, litros_mes_gasoil,
                 litros_disponibles_gasolina, litros_disponibles_gasoil,
                 activo
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, TRUE)
         ''', (
             cliente_id,
             nombre,
