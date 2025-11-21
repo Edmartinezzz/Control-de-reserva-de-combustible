@@ -268,8 +268,7 @@ def init_db():
             
         db.commit()
         print("✅ Base de datos PostgreSQL inicializada correctamente")
-            )
-        ''')
+
         
         
         # Inicializar configuración si no existe
