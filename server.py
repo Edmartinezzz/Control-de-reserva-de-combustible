@@ -332,7 +332,7 @@ def login_cliente():
         db = get_db()
         cursor = db.cursor()
         
-        cursor.execute('SELECT * FROM clientes WHERE cedula = %s AND activo = 1', (cedula,))
+        cursor.execute('SELECT * FROM clientes WHERE cedula = %s AND activo = TRUE', (cedula,))
         cliente = cursor.fetchone()
         
         if not cliente:
