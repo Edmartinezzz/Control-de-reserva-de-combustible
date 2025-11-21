@@ -801,12 +801,15 @@ def registrar_retiro():
         ''', (cliente_id, litros, g.usuario_id, tipo_combustible))
         
         # Actualizar el saldo del cliente
+        # Actualizar el saldo del cliente
+        print(f"DEBUG: Actualizando cliente {cliente_id}, descontando {litros} de {campo_disponible}")
         cursor.execute(f'''
             UPDATE clientes 
-            SET litros_disponibles = litros_disponibles - %s,
-                {campo_disponible} = {campo_disponible} - %s
+            SET litros_disponibles = COALESCE(litros_disponibles, 0) - %s,
+                {campo_disponible} = COALESCE({campo_disponible}, 0) - %s
             WHERE id = %s
         ''', (litros, litros, cliente_id))
+        print(f"DEBUG: Filas actualizadas en clientes: {cursor.rowcount}")
         
         # Actualizar inventario (restar del último registro)
         if inventario:
