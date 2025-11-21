@@ -382,7 +382,7 @@ def obtener_clientes():
     cursor = db.cursor()
     
     busqueda = request.args.get('busqueda', '')
-    query = 'SELECT * FROM clientes WHERE activo = 1'
+    query = 'SELECT * FROM clientes WHERE activo = TRUE'
     params = []
     
     if busqueda:
@@ -475,8 +475,8 @@ def obtener_cliente(cliente_id):
         SELECT c.*, 
                (SELECT SUM(litros) FROM retiros 
                 WHERE cliente_id = c.id 
-                AND date('now', 'start of month') <= date(fecha) 
-                AND date(fecha) <= date('now', 'start of month', '+1 month', '-1 day')) as litros_retirados_mes
+                AND fecha >= DATE_TRUNC('month', CURRENT_DATE) 
+                AND fecha < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month') as litros_retirados_mes
         FROM clientes c 
         WHERE c.id = %s AND c.activo = TRUE
     ''', (cliente_id,))
@@ -647,10 +647,10 @@ def obtener_cliente_por_telefono(telefono):
         SELECT c.*, 
                (SELECT SUM(litros) FROM retiros 
                 WHERE cliente_id = c.id 
-                AND date('now', 'start of month') <= date(fecha) 
-                AND date(fecha) <= date('now', 'start of month', '+1 month', '-1 day')) as litros_retirados_mes
+                AND fecha >= DATE_TRUNC('month', CURRENT_DATE) 
+                AND fecha < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month') as litros_retirados_mes
         FROM clientes c 
-        WHERE c.telefono = %s AND c.activo = 1
+        WHERE c.telefono = %s AND c.activo = TRUE
     ''', (telefono,))
     
     cliente = cursor.fetchone()
@@ -766,7 +766,7 @@ def registrar_retiro():
     
     try:
         # Verificar si el cliente existe y tiene saldo suficiente
-        cursor.execute('SELECT * FROM clientes WHERE id = %s AND activo = 1', (data.get('cliente_id'),))
+        cursor.execute('SELECT * FROM clientes WHERE id = %s AND activo = TRUE', (data.get('cliente_id'),))
         cliente = cursor.fetchone()
         
         if not cliente:
@@ -785,7 +785,7 @@ def registrar_retiro():
         # Registrar el retiro
         cursor.execute('''
             INSERT INTO retiros (cliente_id, fecha, hora, litros, usuario_id)
-            VALUES (%s, date('now'), time('now'), %s, %s)
+            VALUES (%s, CURRENT_DATE, CURRENT_TIME, %s, %s)
         ''', (data.get('cliente_id'), litros, g.usuario_id))
         
         # Actualizar el saldo del cliente (opcional)
@@ -872,41 +872,41 @@ def obtener_estadisticas_retiros():
     
     try:
         # Litros hoy
-        cursor.execute("SELECT SUM(litros) as total FROM retiros WHERE date(fecha) = date('now')")
+        cursor.execute("SELECT SUM(litros) as total FROM retiros WHERE DATE(fecha) = CURRENT_DATE")
         res = cursor.fetchone()
         litros_hoy = res['total'] if res and res['total'] else 0
         
         # Litros mes
-        cursor.execute("SELECT SUM(litros) as total FROM retiros WHERE strftime('%Y-%m', fecha) = strftime('%Y-%m', 'now')")
+        cursor.execute("SELECT SUM(litros) as total FROM retiros WHERE TO_CHAR(fecha, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')")
         res = cursor.fetchone()
         litros_mes = res['total'] if res and res['total'] else 0
         
         # Litros año
-        cursor.execute("SELECT SUM(litros) as total FROM retiros WHERE strftime('%Y', fecha) = strftime('%Y', 'now')")
+        cursor.execute("SELECT SUM(litros) as total FROM retiros WHERE TO_CHAR(fecha, 'YYYY') = TO_CHAR(CURRENT_DATE, 'YYYY')")
         res = cursor.fetchone()
         litros_ano = res['total'] if res and res['total'] else 0
         
         # Clientes hoy
-        cursor.execute("SELECT COUNT(DISTINCT cliente_id) as total FROM retiros WHERE date(fecha) = date('now')")
+        cursor.execute("SELECT COUNT(DISTINCT cliente_id) as total FROM retiros WHERE DATE(fecha) = CURRENT_DATE")
         clientes_hoy = cursor.fetchone()['total']
         
         # Retiros por día (últimos 7 días)
         cursor.execute('''
-            SELECT date(fecha) as dia, SUM(litros) as total 
+            SELECT DATE(fecha) as dia, SUM(litros) as total 
             FROM retiros 
-            WHERE date(fecha) >= date('now', '-7 days')
-            GROUP BY date(fecha)
-            ORDER BY date(fecha)
+            WHERE DATE(fecha) >= CURRENT_DATE - INTERVAL '7 days'
+            GROUP BY DATE(fecha)
+            ORDER BY DATE(fecha)
         ''')
         retiros_dia = [dict(row) for row in cursor.fetchall()]
         
         # Litros por mes (últimos 12 meses)
         cursor.execute('''
-            SELECT strftime('%Y-%m', fecha) as mes, SUM(litros) as total 
+            SELECT TO_CHAR(fecha, 'YYYY-MM') as mes, SUM(litros) as total 
             FROM retiros 
-            WHERE date(fecha) >= date('now', '-12 months')
-            GROUP BY strftime('%Y-%m', fecha)
-            ORDER BY strftime('%Y-%m', fecha)
+            WHERE DATE(fecha) >= CURRENT_DATE - INTERVAL '12 months'
+            GROUP BY TO_CHAR(fecha, 'YYYY-MM')
+            ORDER BY TO_CHAR(fecha, 'YYYY-MM')
         ''')
         litros_por_mes = [dict(row) for row in cursor.fetchall()]
         
@@ -1164,7 +1164,7 @@ def reset_litros():
             SET litros_disponibles = litros_mes,
                 litros_disponibles_gasolina = litros_mes_gasolina,
                 litros_disponibles_gasoil = litros_mes_gasoil
-            WHERE activo = 1
+            WHERE activo = TRUE
         ''')
         
         changes = cursor.rowcount
