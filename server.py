@@ -1,21 +1,12 @@
 from flask import Flask, jsonify, request, g, make_response
 from flask_cors import CORS, cross_origin
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import os
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.environ.get('DATA_DIR', '/data')
-
-if DATA_DIR and os.path.isdir(DATA_DIR):
-    DEFAULT_DB_PATH = os.path.join(DATA_DIR, 'gas_delivery.db')
-else:
-    DEFAULT_DB_PATH = os.path.join(BASE_DIR, 'gas_delivery.db')
-
-DB_PATH = os.environ.get('DB_PATH', DEFAULT_DB_PATH)
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+import urllib.parse
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'tu_clave_secreta_muy_segura')  # En producción, usa una variable de entorno
@@ -26,7 +17,8 @@ def home():
     return jsonify({
         'status': 'online',
         'message': 'API de Despacho Gas+ funcionando correctamente',
-        'version': '1.0.0'
+        'version': '2.0.0 (PostgreSQL)',
+        'database': 'PostgreSQL'
     })
 
 # Obtener origen permitido desde variable de entorno (para producción)
@@ -36,7 +28,7 @@ ALLOWED_ORIGINS = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000,http:
 CORS(app, resources={
     r"/api/*": {
         "origins": ALLOWED_ORIGINS,
-        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         "allow_headers": ["Content-Type", "Authorization"]
     }
 }, supports_credentials=True)
@@ -48,16 +40,34 @@ def after_request(response):
     if origin in ALLOWED_ORIGINS:
         response.headers.add('Access-Control-Allow-Origin', origin)
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH')
     response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
 
-# Configuración de la base de datos
+# Configuración de la base de datos PostgreSQL
 def get_db():
     if 'db' not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
+        database_url = os.environ.get('DATABASE_URL')
+        if not database_url:
+            raise Exception("DATABASE_URL no está configurada")
+        
+        # Parse the URL
+        result = urllib.parse.urlparse(database_url)
+        g.db = psycopg2.connect(
+            database=result.path[1:],
+            user=result.username,
+            password=result.password,
+            host=result.hostname,
+            port=result.port
+        )
+        g.db.set_session(autocommit=False)
     return g.db
+
+@app.teardown_appcontext
+def close_db(error):
+    db = g.pop('db', None)
+    if db is not None:
+        db.close()
 
 # Inicializar la base de datos
 def init_db():
@@ -65,38 +75,51 @@ def init_db():
         db = get_db()
         cursor = db.cursor()
         
-        # Crear tablas si no existen
+        
+        # Crear tablas si no existen (PostgreSQL syntax)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS usuarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                usuario TEXT UNIQUE NOT NULL,
-                contrasena TEXT NOT NULL,
-                nombre TEXT NOT NULL,
-                es_admin BOOLEAN DEFAULT 0
+                id SERIAL PRIMARY KEY,
+                usuario VARCHAR(255) UNIQUE NOT NULL,
+                contrasena VARCHAR(255) NOT NULL,
+                nombre VARCHAR(255) NOT NULL,
+                es_admin BOOLEAN DEFAULT FALSE
             )
         ''')
         
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS clientes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                nombre TEXT NOT NULL,
+                id SERIAL PRIMARY KEY,
+                nombre VARCHAR(255) NOT NULL,
                 direccion TEXT,
-                telefono TEXT,
+                telefono VARCHAR(50),
+                cedula VARCHAR(50) UNIQUE,
+                rif VARCHAR(50),
+                placa VARCHAR(50),
+                categoria VARCHAR(100) DEFAULT 'Persona Natural',
+                subcategoria VARCHAR(100),
+                exonerado BOOLEAN DEFAULT FALSE,
+                huella BOOLEAN DEFAULT FALSE,
                 litros_mes REAL DEFAULT 0,
                 litros_disponibles REAL DEFAULT 0,
-                activo BOOLEAN DEFAULT 1
+                litros_mes_gasolina REAL DEFAULT 0,
+                litros_mes_gasoil REAL DEFAULT 0,
+                litros_disponibles_gasolina REAL DEFAULT 0,
+                litros_disponibles_gasoil REAL DEFAULT 0,
+                activo BOOLEAN DEFAULT TRUE
             )
         ''')
         
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS retiros (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 cliente_id INTEGER NOT NULL,
-                fecha TEXT NOT NULL,
-                hora TEXT NOT NULL,
+                fecha DATE NOT NULL,
+                hora TIME NOT NULL DEFAULT '00:00:00',
                 litros REAL NOT NULL,
                 usuario_id INTEGER NOT NULL,
-                tipo_combustible TEXT DEFAULT 'gasoil',
+                tipo_combustible VARCHAR(20) DEFAULT 'gasoil',
+                codigo_ticket INTEGER,
                 FOREIGN KEY (cliente_id) REFERENCES clientes (id),
                 FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
             )
@@ -113,25 +136,25 @@ def init_db():
         
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS agendamientos (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 cliente_id INTEGER NOT NULL,
                 subcliente_id INTEGER,
-                tipo_combustible TEXT NOT NULL DEFAULT 'gasolina',
+                tipo_combustible VARCHAR(20) NOT NULL DEFAULT 'gasolina',
                 litros REAL NOT NULL,
-                fecha_agendada TEXT NOT NULL,
+                fecha_agendada DATE NOT NULL,
                 codigo_ticket INTEGER,
-                estado TEXT NOT NULL DEFAULT 'pendiente',
+                estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
                 fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (cliente_id) REFERENCES clientes (id),
-                FOREIGN KEY (subcliente_id) REFERENCES clientes (id)
+                FOREIGN KEY (subcliente_id) REFERENCES subclientes (id)
             )
         ''')
         
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS limites_diarios (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                fecha TEXT NOT NULL,
-                tipo_combustible TEXT NOT NULL DEFAULT 'gasolina',
+                id SERIAL PRIMARY KEY,
+                fecha DATE NOT NULL,
+                tipo_combustible VARCHAR(20) NOT NULL DEFAULT 'gasolina',
                 litros_agendados REAL DEFAULT 0,
                 litros_procesados REAL DEFAULT 0,
                 UNIQUE(fecha, tipo_combustible)
@@ -140,16 +163,16 @@ def init_db():
         
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS subclientes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 cliente_padre_id INTEGER NOT NULL,
-                nombre TEXT NOT NULL,
-                cedula TEXT,
-                placa TEXT,
+                nombre VARCHAR(255) NOT NULL,
+                cedula VARCHAR(50),
+                placa VARCHAR(50),
                 litros_mes_gasolina REAL DEFAULT 0,
                 litros_mes_gasoil REAL DEFAULT 0,
                 litros_disponibles_gasolina REAL DEFAULT 0,
                 litros_disponibles_gasoil REAL DEFAULT 0,
-                activo BOOLEAN DEFAULT 1,
+                activo BOOLEAN DEFAULT TRUE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (cliente_padre_id) REFERENCES clientes (id)
@@ -158,8 +181,8 @@ def init_db():
         
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS inventario (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                tipo_combustible TEXT NOT NULL CHECK(tipo_combustible IN ('gasoil', 'gasolina')),
+                id SERIAL PRIMARY KEY,
+                tipo_combustible VARCHAR(20) NOT NULL CHECK(tipo_combustible IN ('gasoil', 'gasolina')),
                 litros_ingresados REAL NOT NULL,
                 litros_disponibles REAL NOT NULL,
                 fecha_ingreso TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -169,6 +192,7 @@ def init_db():
             )
         ''')
         
+        
         # Inicializar configuración si no existe
         cursor.execute('SELECT * FROM sistema_config WHERE id = 1')
         if not cursor.fetchone():
@@ -177,85 +201,24 @@ def init_db():
         # Crear o actualizar usuario admin
         admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
         
-        cursor.execute('SELECT * FROM usuarios WHERE usuario = ?', ('admin',))
+        cursor.execute('SELECT * FROM usuarios WHERE usuario = %s', ('admin',))
         if cursor.fetchone():
             # Si existe, actualizar contraseña
             cursor.execute(
-                'UPDATE usuarios SET contrasena = ? WHERE usuario = ?',
+                'UPDATE usuarios SET contrasena = %s WHERE usuario = %s',
                 (admin_password, 'admin')
             )
             print(f"Usuario admin actualizado con contraseña configurada")
         else:
             # Si no existe, crear
             cursor.execute(
-                'INSERT INTO usuarios (usuario, contrasena, nombre, es_admin) VALUES (?, ?, ?, ?)',
-                ('admin', admin_password, 'Administrador', 1)
+                'INSERT INTO usuarios (usuario, contrasena, nombre, es_admin) VALUES (%s, %s, %s, %s)',
+                ('admin', admin_password, 'Administrador', True)
             )
             print(f"Usuario admin creado con contraseña configurada")
-            
-        # Migraciones: Agregar columnas faltantes si no existen
-        try:
-            cursor.execute('ALTER TABLE clientes ADD COLUMN cedula TEXT UNIQUE')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE clientes ADD COLUMN rif TEXT')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE clientes ADD COLUMN placa TEXT')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE clientes ADD COLUMN categoria TEXT DEFAULT "Persona Natural"')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE clientes ADD COLUMN subcategoria TEXT')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE clientes ADD COLUMN exonerado BOOLEAN DEFAULT 0')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE clientes ADD COLUMN huella BOOLEAN DEFAULT 0')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE clientes ADD COLUMN litros_mes_gasolina REAL DEFAULT 0')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE clientes ADD COLUMN litros_mes_gasoil REAL DEFAULT 0')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE clientes ADD COLUMN litros_disponibles_gasolina REAL DEFAULT 0')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE clientes ADD COLUMN litros_disponibles_gasoil REAL DEFAULT 0')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE retiros ADD COLUMN tipo_combustible TEXT DEFAULT "gasoil"')
-        except: pass
-
-        try:
-            cursor.execute('ALTER TABLE retiros ADD COLUMN hora TEXT DEFAULT "00:00:00"')
-            cursor.execute('UPDATE retiros SET hora = "00:00:00" WHERE hora IS NULL OR hora = ""')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE retiros ADD COLUMN codigo_ticket INTEGER')
-        except: pass
-        
-        try:
-            cursor.execute('ALTER TABLE sistema_config ADD COLUMN limite_diario_gasolina REAL DEFAULT 2000')
-        except: pass
         
         db.commit()
+        print("✅ Base de datos PostgreSQL inicializada correctamente")
 
 # Decorador para verificar el token JWT
 def token_required(f):
@@ -314,7 +277,7 @@ def login():
         db = get_db()
         cursor = db.cursor()
         
-        cursor.execute('SELECT * FROM usuarios WHERE usuario = ?', (data.get('usuario'),))
+        cursor.execute('SELECT * FROM usuarios WHERE usuario = %s', (data.get('usuario'),))
         usuario = cursor.fetchone()
         
         if not usuario or usuario['contrasena'] != data.get('contrasena'):
@@ -367,7 +330,7 @@ def login_cliente():
         db = get_db()
         cursor = db.cursor()
         
-        cursor.execute('SELECT * FROM clientes WHERE cedula = ? AND activo = 1', (cedula,))
+        cursor.execute('SELECT * FROM clientes WHERE cedula = %s AND activo = 1', (cedula,))
         cliente = cursor.fetchone()
         
         if not cliente:
@@ -421,7 +384,7 @@ def obtener_clientes():
     params = []
     
     if busqueda:
-        query += ' AND (nombre LIKE ? OR direccion LIKE ?)'
+        query += ' AND (nombre LIKE %s OR direccion LIKE %s)'
         search_term = f'%{busqueda}%'
         params.extend([search_term, search_term])
     
@@ -513,7 +476,7 @@ def obtener_cliente(cliente_id):
                 AND date('now', 'start of month') <= date(fecha) 
                 AND date(fecha) <= date('now', 'start of month', '+1 month', '-1 day')) as litros_retirados_mes
         FROM clientes c 
-        WHERE c.id = ? AND c.activo = 1
+        WHERE c.id = %s AND c.activo = 1
     ''', (cliente_id,))
     
     cliente = cursor.fetchone()
@@ -543,7 +506,7 @@ def obtener_tickets_cliente(cliente_id):
                 c.categoria as cliente_categoria
             FROM retiros r
             JOIN clientes c ON r.cliente_id = c.id
-            WHERE r.cliente_id = ?
+            WHERE r.cliente_id = %s
             ORDER BY r.fecha DESC
             LIMIT 50
         ''', (cliente_id,))
@@ -566,7 +529,7 @@ def obtener_subclientes(cliente_id):
             return jsonify({'error': 'No autorizado'}), 403
         
         # Verificar que el cliente padre existe
-        cursor.execute('SELECT id, nombre FROM clientes WHERE id = ? AND activo = 1', (cliente_id,))
+        cursor.execute('SELECT id, nombre FROM clientes WHERE id = %s AND activo = 1', (cliente_id,))
         cliente_padre = cursor.fetchone()
         if not cliente_padre:
             return jsonify({'error': 'Cliente padre no encontrado'}), 404
@@ -577,7 +540,7 @@ def obtener_subclientes(cliente_id):
                    litros_disponibles_gasolina, litros_disponibles_gasoil,
                    activo, created_at, updated_at
             FROM subclientes
-            WHERE cliente_padre_id = ? AND activo = 1
+            WHERE cliente_padre_id = %s AND activo = 1
             ORDER BY nombre ASC
         ''', (cliente_id,))
         
@@ -609,7 +572,7 @@ def crear_subcliente(cliente_id):
             return jsonify({'error': 'El nombre del subcliente es requerido'}), 400
         
         # Verificar cliente padre
-        cursor.execute('SELECT id, nombre, litros_mes_gasolina, litros_mes_gasoil FROM clientes WHERE id = ? AND activo = 1', (cliente_id,))
+        cursor.execute('SELECT id, nombre, litros_mes_gasolina, litros_mes_gasoil FROM clientes WHERE id = %s AND activo = 1', (cliente_id,))
         cliente_padre = cursor.fetchone()
         if not cliente_padre:
             return jsonify({'error': 'Cliente padre no encontrado'}), 404
@@ -622,7 +585,7 @@ def crear_subcliente(cliente_id):
                 COALESCE(SUM(litros_mes_gasolina), 0) AS total_gasolina,
                 COALESCE(SUM(litros_mes_gasoil), 0) AS total_gasoil
             FROM subclientes
-            WHERE cliente_padre_id = ? AND activo = 1
+            WHERE cliente_padre_id = %s AND activo = 1
         ''', (cliente_id,))
         sumas = cursor.fetchone()
         
@@ -649,7 +612,7 @@ def crear_subcliente(cliente_id):
                 litros_mes_gasolina, litros_mes_gasoil,
                 litros_disponibles_gasolina, litros_disponibles_gasoil,
                 activo
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1)
         ''', (
             cliente_id,
             nombre,
@@ -685,7 +648,7 @@ def obtener_cliente_por_telefono(telefono):
                 AND date('now', 'start of month') <= date(fecha) 
                 AND date(fecha) <= date('now', 'start of month', '+1 month', '-1 day')) as litros_retirados_mes
         FROM clientes c 
-        WHERE c.telefono = ? AND c.activo = 1
+        WHERE c.telefono = %s AND c.activo = 1
     ''', (telefono,))
     
     cliente = cursor.fetchone()
@@ -718,7 +681,7 @@ def crear_cliente():
                 litros_mes_gasolina, litros_mes_gasoil,
                 litros_disponibles_gasolina, litros_disponibles_gasoil
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ''', (
             data.get('nombre'),
             data.get('direccion'),
@@ -763,11 +726,11 @@ def actualizar_cliente(id):
         
         cursor.execute('''
             UPDATE clientes SET
-                nombre = ?, direccion = ?, telefono = ?, cedula = ?, rif = ?, placa = ?,
-                categoria = ?, subcategoria = ?, exonerado = ?, huella = ?,
-                litros_mes = ?, 
-                litros_mes_gasolina = ?, litros_mes_gasoil = ?
-            WHERE id = ?
+                nombre = %s, direccion = %s, telefono = %s, cedula = %s, rif = %s, placa = %s,
+                categoria = %s, subcategoria = %s, exonerado = %s, huella = %s,
+                litros_mes = %s, 
+                litros_mes_gasolina = %s, litros_mes_gasoil = %s
+            WHERE id = %s
         ''', (
             data.get('nombre'),
             data.get('direccion'),
@@ -801,7 +764,7 @@ def registrar_retiro():
     
     try:
         # Verificar si el cliente existe y tiene saldo suficiente
-        cursor.execute('SELECT * FROM clientes WHERE id = ? AND activo = 1', (data.get('cliente_id'),))
+        cursor.execute('SELECT * FROM clientes WHERE id = %s AND activo = 1', (data.get('cliente_id'),))
         cliente = cursor.fetchone()
         
         if not cliente:
@@ -820,14 +783,14 @@ def registrar_retiro():
         # Registrar el retiro
         cursor.execute('''
             INSERT INTO retiros (cliente_id, fecha, hora, litros, usuario_id)
-            VALUES (?, date('now'), time('now'), ?, ?)
+            VALUES (%s, date('now'), time('now'), %s, %s)
         ''', (data.get('cliente_id'), litros, g.usuario_id))
         
         # Actualizar el saldo del cliente (opcional)
         # cursor.execute('''
         #     UPDATE clientes 
-        #     SET litros_disponibles = litros_disponibles - ? 
-        #     WHERE id = ?
+        #     SET litros_disponibles = litros_disponibles - %s 
+        #     WHERE id = %s
         # ''', (litros, data.get('cliente_id')))
         
         db.commit()
@@ -857,15 +820,15 @@ def obtener_retiros():
     params = []
     
     if cliente_id:
-        query += ' AND r.cliente_id = ?'
+        query += ' AND r.cliente_id = %s'
         params.append(cliente_id)
         
     if fecha_inicio:
-        query += ' AND r.fecha >= ?'
+        query += ' AND r.fecha >= %s'
         params.append(fecha_inicio)
         
     if fecha_fin:
-        query += ' AND r.fecha <= ?'
+        query += ' AND r.fecha <= %s'
         params.append(fecha_fin)
     
     query += ' ORDER BY r.fecha DESC, r.hora DESC'
@@ -985,7 +948,7 @@ def obtener_agendamientos_dia(fecha):
             FROM agendamientos a
             JOIN clientes c ON a.cliente_id = c.id
             LEFT JOIN clientes s ON a.subcliente_id = s.id
-            WHERE a.fecha_agendada = ?
+            WHERE a.fecha_agendada = %s
             ORDER BY a.codigo_ticket ASC
         ''', (fecha,))
         
@@ -1022,7 +985,7 @@ def crear_agendamiento():
         cursor.execute('''
             SELECT COALESCE(MAX(codigo_ticket), 0) + 1 as next_ticket
             FROM agendamientos
-            WHERE fecha_agendada = ?
+            WHERE fecha_agendada = %s
         ''', (fecha_agendada,))
         
         codigo_ticket = cursor.fetchone()['next_ticket']
@@ -1032,7 +995,7 @@ def crear_agendamiento():
             INSERT INTO agendamientos (
                 cliente_id, tipo_combustible, litros, fecha_agendada, 
                 subcliente_id, estado, codigo_ticket
-            ) VALUES (?, ?, ?, ?, ?, 'pendiente', ?)
+            ) VALUES (%s, %s, %s, %s, %s, 'pendiente', %s)
         ''', (cliente_id, tipo_combustible, litros, fecha_agendada, subcliente_id, codigo_ticket))
         
         db.commit()
@@ -1055,7 +1018,7 @@ def marcar_como_entregado(agendamiento_id):
     
     try:
         # Verificar que el agendamiento existe
-        cursor.execute('SELECT id, estado FROM agendamientos WHERE id = ?', (agendamiento_id,))
+        cursor.execute('SELECT id, estado FROM agendamientos WHERE id = %s', (agendamiento_id,))
         agendamiento = cursor.fetchone()
         
         if not agendamiento:
@@ -1065,7 +1028,7 @@ def marcar_como_entregado(agendamiento_id):
         cursor.execute('''
             UPDATE agendamientos 
             SET estado = 'entregado'
-            WHERE id = ?
+            WHERE id = %s
         ''', (agendamiento_id,))
         
         db.commit()
@@ -1100,7 +1063,7 @@ def obtener_agendamientos_cliente(cliente_id):
                 s.placa AS subcliente_placa
             FROM agendamientos a
             LEFT JOIN subclientes s ON a.subcliente_id = s.id
-            WHERE a.cliente_id = ?
+            WHERE a.cliente_id = %s
             ORDER BY a.fecha_agendada DESC, a.fecha_creacion DESC
         ''', (cliente_id,))
         
@@ -1132,7 +1095,7 @@ def obtener_limites():
         cursor.execute('''
             SELECT litros_agendados, litros_procesados 
             FROM limites_diarios 
-            WHERE fecha = ? AND tipo_combustible = "gasolina"
+            WHERE fecha = %s AND tipo_combustible = "gasolina"
         ''', (hoy,))
         limites_hoy = cursor.fetchone()
         
@@ -1140,7 +1103,7 @@ def obtener_limites():
         cursor.execute('''
             SELECT litros_agendados 
             FROM limites_diarios 
-            WHERE fecha = ? AND tipo_combustible = "gasolina"
+            WHERE fecha = %s AND tipo_combustible = "gasolina"
         ''', (mañana,))
         limites_mañana = cursor.fetchone()
         
@@ -1177,7 +1140,7 @@ def sistema_bloqueo():
             return jsonify({'error': 'No autorizado'}), 403
             
         bloqueado = request.json.get('bloqueado', False)
-        cursor.execute('UPDATE sistema_config SET retiros_bloqueados = ? WHERE id = 1', (1 if bloqueado else 0,))
+        cursor.execute('UPDATE sistema_config SET retiros_bloqueados = %s WHERE id = 1', (1 if bloqueado else 0,))
         db.commit()
         
         estado = "bloqueados" if bloqueado else "desbloqueados"
@@ -1246,10 +1209,10 @@ def obtener_inventario():
     
     try:
         # Obtener el último registro de cada tipo de combustible
-        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasoil',))
+        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = %s ORDER BY id DESC LIMIT 1', ('gasoil',))
         gasoil = cursor.fetchone()
         
-        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasolina',))
+        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = %s ORDER BY id DESC LIMIT 1', ('gasolina',))
         gasolina = cursor.fetchone()
         
         # Devolver un array con ambos tipos
@@ -1303,7 +1266,7 @@ def crear_inventario():
             return jsonify({'error': 'Ingrese una cantidad válida de litros'}), 400
         
         # Obtener el inventario actual para el tipo de combustible específico
-        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', (tipo_combustible,))
+        cursor.execute('SELECT * FROM inventario WHERE tipo_combustible = %s ORDER BY id DESC LIMIT 1', (tipo_combustible,))
         inventario_actual = cursor.fetchone()
         
         litros_disponibles = (dict(inventario_actual)['litros_disponibles'] if inventario_actual else 0) + litros_ingresados
@@ -1311,7 +1274,7 @@ def crear_inventario():
         # Insertar nuevo registro de inventario
         cursor.execute('''
             INSERT INTO inventario (tipo_combustible, litros_ingresados, litros_disponibles, usuario_id, observaciones)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         ''', (tipo_combustible, litros_ingresados, litros_disponibles, g.usuario_id, observaciones))
         
         db.commit()
@@ -1337,16 +1300,16 @@ def resetear_inventario():
     
     try:
         # Obtener el último registro de gasoil
-        cursor.execute('SELECT id FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasoil',))
+        cursor.execute('SELECT id FROM inventario WHERE tipo_combustible = %s ORDER BY id DESC LIMIT 1', ('gasoil',))
         gasoil_record = cursor.fetchone()
         if gasoil_record:
-            cursor.execute('UPDATE inventario SET litros_disponibles = 0 WHERE id = ?', (dict(gasoil_record)['id'],))
+            cursor.execute('UPDATE inventario SET litros_disponibles = 0 WHERE id = %s', (dict(gasoil_record)['id'],))
         
         # Obtener el último registro de gasolina
-        cursor.execute('SELECT id FROM inventario WHERE tipo_combustible = ? ORDER BY id DESC LIMIT 1', ('gasolina',))
+        cursor.execute('SELECT id FROM inventario WHERE tipo_combustible = %s ORDER BY id DESC LIMIT 1', ('gasolina',))
         gasolina_record = cursor.fetchone()
         if gasolina_record:
-            cursor.execute('UPDATE inventario SET litros_disponibles = 0 WHERE id = ?', (dict(gasolina_record)['id'],))
+            cursor.execute('UPDATE inventario SET litros_disponibles = 0 WHERE id = %s', (dict(gasolina_record)['id'],))
         
         db.commit()
         return jsonify({
