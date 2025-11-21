@@ -765,40 +765,62 @@ def registrar_retiro():
     cursor = db.cursor()
     
     try:
+        cliente_id = data.get('cliente_id')
+        litros = float(data.get('litros', 0))
+        tipo_combustible = data.get('tipo_combustible', 'gasolina')
+        
+        if litros <= 0:
+            return jsonify({'error': 'La cantidad debe ser mayor a cero'}), 400
+
         # Verificar si el cliente existe y tiene saldo suficiente
-        cursor.execute('SELECT * FROM clientes WHERE id = %s AND activo = TRUE', (data.get('cliente_id'),))
+        cursor.execute('SELECT * FROM clientes WHERE id = %s AND activo = TRUE', (cliente_id,))
         cliente = cursor.fetchone()
         
         if not cliente:
             return jsonify({'error': 'Cliente no encontrado'}), 404
             
-        litros = float(data.get('litros', 0))
+        # Verificar saldo disponible del cliente
+        campo_disponible = f'litros_disponibles_{tipo_combustible}'
+        saldo_actual = cliente.get(campo_disponible, 0)
         
-        # Verificar saldo disponible
-        if litros <= 0:
-            return jsonify({'error': 'La cantidad debe ser mayor a cero'}), 400
-            
-        # Verificar saldo disponible (opcional, dependiendo de la lógica de negocio)
-        # if cliente['litros_disponibles'] < litros:
-        #     return jsonify({'error': 'Saldo insuficiente'}), 400
+        # if saldo_actual < litros:
+        #     return jsonify({'error': f'Saldo insuficiente de {tipo_combustible}. Disponible: {saldo_actual}'}), 400
+        
+        # Verificar inventario disponible
+        cursor.execute('SELECT id, litros_disponibles FROM inventario WHERE tipo_combustible = %s ORDER BY id DESC LIMIT 1', (tipo_combustible,))
+        inventario = cursor.fetchone()
+        
+        if not inventario: # or inventario['litros_disponibles'] < litros:
+             # Permitir retiro aunque no haya inventario registrado por ahora, o descomentar para restringir
+             pass
         
         # Registrar el retiro
         cursor.execute('''
-            INSERT INTO retiros (cliente_id, fecha, hora, litros, usuario_id)
-            VALUES (%s, CURRENT_DATE, CURRENT_TIME, %s, %s)
-        ''', (data.get('cliente_id'), litros, g.usuario_id))
+            INSERT INTO retiros (cliente_id, fecha, hora, litros, usuario_id, tipo_combustible)
+            VALUES (%s, CURRENT_DATE, CURRENT_TIME, %s, %s, %s)
+        ''', (cliente_id, litros, g.usuario_id, tipo_combustible))
         
-        # Actualizar el saldo del cliente (opcional)
-        # cursor.execute('''
-        #     UPDATE clientes 
-        #     SET litros_disponibles = litros_disponibles - %s 
-        #     WHERE id = %s
-        # ''', (litros, data.get('cliente_id')))
+        # Actualizar el saldo del cliente
+        cursor.execute(f'''
+            UPDATE clientes 
+            SET litros_disponibles = litros_disponibles - %s,
+                {campo_disponible} = {campo_disponible} - %s
+            WHERE id = %s
+        ''', (litros, litros, cliente_id))
+        
+        # Actualizar inventario (restar del último registro)
+        if inventario:
+            cursor.execute('''
+                UPDATE inventario 
+                SET litros_disponibles = litros_disponibles - %s 
+                WHERE id = %s
+            ''', (litros, inventario['id']))
         
         db.commit()
         return jsonify({'mensaje': 'Retiro registrado exitosamente'}), 201
     except Exception as e:
         db.rollback()
+        print(f"Error en retiro: {e}")
         return jsonify({'error': str(e)}), 400
 
 # Ruta para obtener el historial de retiros
@@ -1097,7 +1119,7 @@ def obtener_limites():
         cursor.execute('''
             SELECT litros_agendados, litros_procesados 
             FROM limites_diarios 
-            WHERE fecha = %s AND tipo_combustible = "gasolina"
+            WHERE fecha = %s AND tipo_combustible = 'gasolina'
         ''', (hoy,))
         limites_hoy = cursor.fetchone()
         
@@ -1105,7 +1127,7 @@ def obtener_limites():
         cursor.execute('''
             SELECT litros_agendados 
             FROM limites_diarios 
-            WHERE fecha = %s AND tipo_combustible = "gasolina"
+            WHERE fecha = %s AND tipo_combustible = 'gasolina'
         ''', (mañana,))
         limites_mañana = cursor.fetchone()
         
