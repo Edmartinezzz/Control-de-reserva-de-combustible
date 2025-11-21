@@ -74,16 +74,16 @@ export default function ClienteDashboard() {
 
   const litrosAsignadosGasolinaSub = esInstitucional
     ? (subclientes as any[]).reduce(
-        (sum, sub) => sum + (sub.litros_mes_gasolina || 0),
-        0
-      )
+      (sum, sub) => sum + (sub.litros_mes_gasolina || 0),
+      0
+    )
     : 0;
 
   const litrosAsignadosGasoilSub = esInstitucional
     ? (subclientes as any[]).reduce(
-        (sum, sub) => sum + (sub.litros_mes_gasoil || 0),
-        0
-      )
+      (sum, sub) => sum + (sub.litros_mes_gasoil || 0),
+      0
+    )
     : 0;
 
   const litrosDisponiblesParaSubGasolina = Math.max(
@@ -113,7 +113,7 @@ export default function ClienteDashboard() {
 
   const handleAgendar = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!litros || isNaN(Number(litros)) || Number(litros) <= 0) {
       toast.error('Por favor ingrese una cantidad válida');
       return;
@@ -134,12 +134,12 @@ export default function ClienteDashboard() {
       toast.error('Seleccione un trabajador para agendar el retiro');
       return;
     }
-    
+
     // Verificar litros disponibles del cliente según el tipo de combustible
-    const litrosDisponiblesTipo = tipoCombustible === 'gasolina' 
+    const litrosDisponiblesTipo = tipoCombustible === 'gasolina'
       ? (cliente?.litros_disponibles_gasolina || cliente?.litros_disponibles || 0)
       : (cliente?.litros_disponibles_gasoil || cliente?.litros_disponibles || 0);
-    
+
     if (litrosNum > litrosDisponiblesTipo) {
       toast.error(`No tiene suficientes litros de ${tipoCombustible} disponibles`);
       return;
@@ -147,7 +147,7 @@ export default function ClienteDashboard() {
 
     try {
       setIsLoading(true);
-      
+
       // Debug: Mostrar datos que se van a enviar
       console.log('📤 Enviando agendamiento:', {
         cliente_id: cliente?.id,
@@ -167,7 +167,7 @@ export default function ClienteDashboard() {
       console.log('📥 Respuesta del servidor:', response.data);
 
       const { codigo_ticket, fecha_agendada } = response.data;
-      
+
       // Actualizar litros disponibles del cliente en memoria (institucional o no)
       if (cliente) {
         const clienteActualizado = { ...cliente };
@@ -204,7 +204,7 @@ export default function ClienteDashboard() {
       // Mostrar modal del ticket
       setTicketData(ticketInfo);
       setShowTicketModal(true);
-      
+
       // Verificar si el inventario se agotó
       if (response.data.inventario_restante <= 0) {
         setTimeout(() => {
@@ -212,13 +212,13 @@ export default function ClienteDashboard() {
           setShowInventarioAgotado(true);
         }, 2000); // Mostrar después de 2 segundos para que vea el ticket primero
       }
-      
+
       setLitros('');
       refetchAgendamientos(); // Actualizar lista de agendamientos
     } catch (error: any) {
       console.error('Error al crear agendamiento:', error);
       const errorMsg = error.response?.data?.error || 'Error al crear el agendamiento';
-      
+
       if (error.response?.data?.limite) {
         const { limite, agendado, disponible } = error.response.data;
         toast.error(
@@ -275,7 +275,7 @@ export default function ClienteDashboard() {
               de {(cliente.litros_mes_gasolina || cliente.litros_mes || 0).toFixed(2)} litros mensuales
             </p>
           </div>
-          
+
           <div className="bg-green-50 p-6 rounded-lg">
             <div className="flex items-center mb-4">
               <div className="p-3 bg-green-100 rounded-full mr-4">
@@ -296,9 +296,9 @@ export default function ClienteDashboard() {
               <div className="p-3 bg-green-100 rounded-full mr-4">
                 <FiClock className="text-green-600 text-xl" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-800">Horario de Procesamiento</h3>
+              <h3 className="text-lg font-semibold text-gray-800">Horario de Atención</h3>
             </div>
-            <p className="text-2xl font-bold text-green-600">5:00 AM</p>
+            <p className="text-2xl font-bold text-green-600">10:00 AM</p>
             <p className="text-sm text-gray-500 mt-2">
               Los agendamientos se procesan automáticamente cada día
             </p>
@@ -306,46 +306,46 @@ export default function ClienteDashboard() {
         </div>
 
         {/* Estado del Inventario - Sin Combustible */}
-        {estadoInventario && (!estadoInventario.disponible || 
+        {estadoInventario && (!estadoInventario.disponible ||
           (tipoCombustible === 'gasolina' && (estadoInventario?.inventario?.gasolina || 0) <= 0) ||
           (tipoCombustible === 'gasoil' && (estadoInventario?.inventario?.gasoil || 0) <= 0)
         ) && (
-          <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6 mb-6 animate-pulse">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <FiAlertTriangle className="h-10 w-10 text-red-600" />
-              </div>
-              <div className="ml-4 flex-1">
-                <h3 className="text-xl font-bold text-red-900 mb-2">🚫 {tipoCombustible.toUpperCase()} NO DISPONIBLE</h3>
-                <p className="text-red-800 font-medium mb-3">
-                  El inventario de {tipoCombustible} está agotado. No se pueden realizar agendamientos hasta que se reabastezca.
-                </p>
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold bg-red-200 text-red-900 border border-red-400">
-                    📦 {tipoCombustible}: {estadoInventario?.inventario?.[tipoCombustible] || 0} Litros
-                  </span>
-                  <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold bg-yellow-200 text-yellow-900 border border-yellow-400">
-                    ⚠️ Estado: AGOTADO
-                  </span>
-                  <button
-                    onClick={() => {
-                      refetchInventario();
-                      toast.loading('Verificando inventario...', { duration: 1000 });
-                    }}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-700 bg-red-100 border border-red-300 rounded-lg hover:bg-red-200 transition-colors"
-                  >
-                    🔄 Verificar Disponibilidad
-                  </button>
+            <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6 mb-6 animate-pulse">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <FiAlertTriangle className="h-10 w-10 text-red-600" />
                 </div>
-                <div className="mt-4 p-3 bg-red-100 rounded-lg">
-                  <p className="text-sm text-red-800">
-                    📞 <strong>Contacta al administrador</strong> para conocer cuándo estará disponible nuevamente el combustible.
+                <div className="ml-4 flex-1">
+                  <h3 className="text-xl font-bold text-red-900 mb-2">🚫 {tipoCombustible.toUpperCase()} NO DISPONIBLE</h3>
+                  <p className="text-red-800 font-medium mb-3">
+                    El inventario de {tipoCombustible} está agotado. No se pueden realizar agendamientos hasta que se reabastezca.
                   </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold bg-red-200 text-red-900 border border-red-400">
+                      📦 {tipoCombustible}: {estadoInventario?.inventario?.[tipoCombustible] || 0} Litros
+                    </span>
+                    <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-bold bg-yellow-200 text-yellow-900 border border-yellow-400">
+                      ⚠️ Estado: AGOTADO
+                    </span>
+                    <button
+                      onClick={() => {
+                        refetchInventario();
+                        toast.loading('Verificando inventario...', { duration: 1000 });
+                      }}
+                      className="inline-flex items-center px-4 py-2 text-sm font-medium text-red-700 bg-red-100 border border-red-300 rounded-lg hover:bg-red-200 transition-colors"
+                    >
+                      🔄 Verificar Disponibilidad
+                    </button>
+                  </div>
+                  <div className="mt-4 p-3 bg-red-100 rounded-lg">
+                    <p className="text-sm text-red-800">
+                      📞 <strong>Contacta al administrador</strong> para conocer cuándo estará disponible nuevamente el combustible.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Información del Sistema - Combustible Disponible */}
         {estadoInventario?.disponible && (estadoInventario?.inventario?.[tipoCombustible] || 0) > 0 && (
@@ -354,7 +354,7 @@ export default function ClienteDashboard() {
               <div>
                 <h3 className="text-lg font-semibold text-green-900 mb-2">🚀 Sistema de Agendamiento</h3>
                 <p className="text-green-700 text-sm">
-                  Los retiros se agendan para el día siguiente. Tu ticket se genera inmediatamente.
+                  Su ticket será válido para el día siguiente.
                 </p>
               </div>
               <div className="text-right">
@@ -404,9 +404,8 @@ export default function ClienteDashboard() {
                       return (
                         <div
                           key={sub.id}
-                          className={`flex items-center justify-between border rounded-md px-3 py-2 ${
-                            isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
-                          }`}
+                          className={`flex items-center justify-between border rounded-md px-3 py-2 ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
+                            }`}
                         >
                           <div className="flex flex-col">
                             <span className="text-sm font-medium text-gray-800">{sub.nombre}</span>
@@ -421,11 +420,10 @@ export default function ClienteDashboard() {
                                 setSubclienteSeleccionadoId(sub.id);
                                 setTipoCombustible('gasolina');
                               }}
-                              className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium border ${
-                                isSelected && tipoCombustible === 'gasolina'
+                              className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium border ${isSelected && tipoCombustible === 'gasolina'
                                   ? 'bg-blue-600 text-white border-blue-600'
                                   : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                              }`}
+                                }`}
                             >
                               <FiDroplet className="mr-1 h-3 w-3" />
                               Gasolina
@@ -436,11 +434,10 @@ export default function ClienteDashboard() {
                                 setSubclienteSeleccionadoId(sub.id);
                                 setTipoCombustible('gasoil');
                               }}
-                              className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium border ${
-                                isSelected && tipoCombustible === 'gasoil'
+                              className={`inline-flex items-center px-2.5 py-1.5 rounded-md text-xs font-medium border ${isSelected && tipoCombustible === 'gasoil'
                                   ? 'bg-green-600 text-white border-green-600'
                                   : 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
-                              }`}
+                                }`}
                             >
                               <FiTruck className="mr-1 h-3 w-3" />
                               Gasoil
@@ -462,7 +459,7 @@ export default function ClienteDashboard() {
               )}
             </div>
           )}
-          
+
           {/* Selección de Tipo de Combustible (solo para clientes no institucionales) */}
           {!esInstitucional && (
             <div className="mb-4">
@@ -471,24 +468,22 @@ export default function ClienteDashboard() {
                 <button
                   type="button"
                   onClick={() => setTipoCombustible('gasolina')}
-                  className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg border-2 transition-all duration-200 ${
-                    tipoCombustible === 'gasolina'
+                  className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg border-2 transition-all duration-200 ${tipoCombustible === 'gasolina'
                       ? 'border-blue-500 bg-blue-50 text-blue-700'
                       : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                  }`}
+                    }`}
                 >
                   <FiDroplet className="mr-2 h-5 w-5" />
                   <div className="font-semibold">Gasolina</div>
                 </button>
-                
+
                 <button
                   type="button"
                   onClick={() => setTipoCombustible('gasoil')}
-                  className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg border-2 transition-all duration-200 ${
-                    tipoCombustible === 'gasoil'
+                  className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg border-2 transition-all duration-200 ${tipoCombustible === 'gasoil'
                       ? 'border-green-500 bg-green-50 text-green-700'
                       : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                  }`}
+                    }`}
                 >
                   <FiTruck className="mr-2 h-5 w-5" />
                   <div className="font-semibold">Gasoil</div>
@@ -496,10 +491,10 @@ export default function ClienteDashboard() {
               </div>
             </div>
           )}
-          
+
           <div className="mb-3 p-3 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-800">
-              📅 <strong>Nuevo Sistema:</strong> Los retiros se agendan para el día siguiente. 
+              📅 <strong>Nuevo Sistema:</strong> Los retiros se agendan para el día siguiente.
               El administrador procesará tu solicitud a las 5:00 AM.
             </p>
           </div>
@@ -515,7 +510,7 @@ export default function ClienteDashboard() {
                 onChange={(e) => setLitros(e.target.value)}
                 placeholder={estadoInventario?.disponible ? "Ingrese cantidad" : "Sin inventario disponible"}
                 min="1"
-                max={tipoCombustible === 'gasolina' 
+                max={tipoCombustible === 'gasolina'
                   ? (cliente?.litros_disponibles_gasolina || cliente?.litros_disponibles || 0)
                   : (cliente?.litros_disponibles_gasoil || cliente?.litros_disponibles || 0)
                 }
@@ -531,11 +526,11 @@ export default function ClienteDashboard() {
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {(estadoInventario?.inventario?.[tipoCombustible] || 0) <= 0
-                  ? `🚫 Sin ${tipoCombustible} Disponible` 
+                  ? `🚫 Sin ${tipoCombustible} Disponible`
                   : !estadoInventario?.disponible
                     ? '⚠️ Sistema No Disponible'
-                    : isLoading 
-                      ? '🔄 Agendando...' 
+                    : isLoading
+                      ? '🔄 Agendando...'
                       : `📅 Agendar ${tipoCombustible} para Mañana`
                 }
               </button>
@@ -547,7 +542,7 @@ export default function ClienteDashboard() {
                     toast.error('Por favor ingrese una cantidad válida para la prueba');
                     return;
                   }
-                  
+
                   try {
                     console.log('🧪 Probando endpoint de prueba...');
                     const response = await api.post('/api/test-agendamiento', {
@@ -555,9 +550,9 @@ export default function ClienteDashboard() {
                       tipo_combustible: tipoCombustible,
                       litros: parseFloat(litros)
                     });
-                    
+
                     console.log('🧪 Respuesta de prueba:', response.data);
-                    
+
                     // Mostrar modal con datos de prueba
                     const ticketInfo = {
                       codigo_ticket: response.data.codigo_ticket,
@@ -572,7 +567,7 @@ export default function ClienteDashboard() {
                         categoria: cliente?.categoria || 'Empleado'
                       }
                     };
-                    
+
                     setTicketData(ticketInfo);
                     setShowTicketModal(true);
                   } catch (error: any) {
@@ -621,7 +616,7 @@ export default function ClienteDashboard() {
 
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-xl font-bold text-gray-800 mb-4">Mis Agendamientos</h2>
-        
+
         {agendamientos.length === 0 ? (
           <div className="text-center py-8">
             <FiCalendar className="mx-auto h-12 w-12 text-gray-400" />
@@ -663,15 +658,14 @@ export default function ClienteDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                      agendamiento.estado === 'procesado' 
+                    <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${agendamiento.estado === 'procesado'
                         ? 'bg-green-100 text-green-800'
                         : agendamiento.estado === 'pendiente'
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {agendamiento.estado === 'procesado' ? '✅ Procesado' : 
-                       agendamiento.estado === 'pendiente' ? '⏳ Pendiente' : '❌ Cancelado'}
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                      {agendamiento.estado === 'procesado' ? '✅ Procesado' :
+                        agendamiento.estado === 'pendiente' ? '⏳ Pendiente' : '❌ Cancelado'}
                     </span>
                     {agendamiento.estado === 'pendiente' && (
                       <p className="text-xs text-blue-600 mt-1 font-medium">
