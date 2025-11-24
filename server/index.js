@@ -697,6 +697,53 @@ app.get('/api/clientes/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// ==================== ENDPOINT DE EMERGENCIA: AGREGAR COLUMNA ====================
+// Este endpoint agrega la columna fecha_ultimo_reset si no existe
+// Llamar una sola vez desde el navegador: /api/emergency-fix-reset
+app.get('/api/emergency-fix-reset', async (req, res) => {
+  try {
+    console.log('🚨 EJECUTANDO FIX DE EMERGENCIA: Agregando fecha_ultimo_reset...');
+
+    if (db.isPostgres) {
+      // PostgreSQL: Agregar columna si no existe
+      await db.pool.query(`
+        ALTER TABLE sistema_config 
+        ADD COLUMN IF NOT EXISTS fecha_ultimo_reset TEXT
+      `);
+
+      // Establecer fecha de hoy
+      const hoy = new Date().toISOString().split('T')[0];
+      await db.pool.query(`
+        UPDATE sistema_config 
+        SET fecha_ultimo_reset = $1 
+        WHERE id = 1
+      `, [hoy]);
+
+      // Verificar
+      const result = await db.pool.query('SELECT * FROM sistema_config WHERE id = 1');
+
+      console.log('✅ Columna agregada exitosamente');
+      res.json({
+        success: true,
+        message: 'Columna fecha_ultimo_reset agregada exitosamente',
+        config: result.rows[0]
+      });
+    } else {
+      // SQLite: Ya debería tener la columna de la migración local
+      res.json({
+        success: true,
+        message: 'SQLite - No se necesita migración'
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error en fix de emergencia:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // ==================== ENDPOINTS PARA SUBCLIENTES ====================
 
 // Obtener subclientes de un cliente padre
