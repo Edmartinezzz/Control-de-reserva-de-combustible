@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useClienteAuth } from '@/contexts/ClienteAuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ExclamationTriangleIcon, UserCircleIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
@@ -13,8 +14,10 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [esAdmin, setEsAdmin] = useState(true);
-  const [telefonoCliente, setTelefonoCliente] = useState('');
-  const { login } = useAuth();
+  const [cedulaCliente, setCedulaCliente] = useState('');
+
+  const { login: loginAdmin } = useAuth();
+  const { login: loginCliente } = useClienteAuth();
   const { theme } = useTheme();
   const router = useRouter();
 
@@ -29,20 +32,17 @@ export default function Login() {
     try {
       setError('');
       setLoading(true);
-      await login(usuario, contrasena);
+      await loginAdmin(usuario, contrasena);
       router.push('/dashboard');
     } catch (error: any) {
       console.error('Error al iniciar sesión:', error);
       let message = 'Error al iniciar sesión';
 
       if (error.response) {
-        // Server responded with a status code outside 2xx range
         message = error.response.data?.error || `Error del servidor: ${error.response.status}`;
       } else if (error.request) {
-        // Request was made but no response received
         message = 'No se recibió respuesta del servidor. Verifique su conexión.';
       } else {
-        // Something happened in setting up the request
         message = error.message || message;
       }
 
@@ -55,13 +55,30 @@ export default function Login() {
   const handleClienteLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!telefonoCliente) {
+    if (!cedulaCliente) {
       setError('Por favor ingrese su número de cédula');
       return;
     }
 
-    // Redirigir a la página de login de cliente pasando la cédula
-    router.push(`/cliente/login?cedula=${telefonoCliente}`);
+    // Validar formato de cédula (7 u 8 dígitos)
+    const cedulaRegex = /^[0-9]{7,8}$/;
+    if (!cedulaRegex.test(cedulaCliente)) {
+      setError('La cédula debe tener 7 u 8 dígitos numéricos');
+      return;
+    }
+
+    try {
+      setError('');
+      setLoading(true);
+      await loginCliente(cedulaCliente);
+      // La redirección a /cliente/dashboard la maneja el contexto o podemos forzarla aquí si es necesario
+      // router.push('/cliente/dashboard'); 
+    } catch (error: any) {
+      console.error('Error al iniciar sesión:', error);
+      setError(error.message || 'Error al iniciar sesión. Verifique su cédula.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -88,7 +105,7 @@ export default function Login() {
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
             {esAdmin
               ? 'Ingrese sus credenciales de administrador'
-              : 'Ingrese su número de teléfono para ver su saldo'}
+              : 'Ingrese su número de cédula para ver su saldo'}
           </p>
         </div>
 
@@ -96,7 +113,7 @@ export default function Login() {
         <div className="flex rounded-md shadow-sm animate-scale-in" style={{ animationDelay: '0.2s' }}>
           <button
             type="button"
-            onClick={() => setEsAdmin(true)}
+            onClick={() => { setEsAdmin(true); setError(''); }}
             className={`flex-1 py-2 px-4 text-sm font-medium rounded-l-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:z-10 transition-all duration-200 hover:scale-105 active:scale-95 transform ${esAdmin
               ? 'bg-red-600 text-white'
               : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600'
@@ -109,7 +126,7 @@ export default function Login() {
           </button>
           <button
             type="button"
-            onClick={() => setEsAdmin(false)}
+            onClick={() => { setEsAdmin(false); setError(''); }}
             className={`flex-1 py-2 px-4 text-sm font-medium rounded-r-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:z-10 transition-all duration-200 hover:scale-105 active:scale-95 transform ${!esAdmin
               ? 'bg-red-600 text-white'
               : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-600'
@@ -197,8 +214,8 @@ export default function Login() {
                     id="cedula-cliente"
                     className="focus:ring-red-500 focus:border-red-500 block w-full pl-10 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md p-2 border bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-colors duration-200"
                     placeholder="Ingrese su número de cédula"
-                    value={telefonoCliente}
-                    onChange={(e) => setTelefonoCliente(e.target.value.replace(/\D/g, ''))}
+                    value={cedulaCliente}
+                    onChange={(e) => setCedulaCliente(e.target.value.replace(/\D/g, ''))}
                     maxLength={8}
                   />
                 </div>
@@ -211,7 +228,7 @@ export default function Login() {
                 disabled={loading}
                 className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 active:scale-95 active:shadow-inner hover:shadow-lg transform"
               >
-                {loading ? 'Redirigiendo...' : 'Continuar'}
+                {loading ? 'Verificando...' : 'Ver mi saldo'}
               </button>
             </div>
           </form>
