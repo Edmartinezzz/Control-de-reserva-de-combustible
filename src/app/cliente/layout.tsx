@@ -36,10 +36,10 @@ function ClienteAuthChecker({ children }: { children: React.ReactNode }) {
     if (loading) return;
 
     const isAuthPage = ['/cliente/login', '/cliente/registro'].includes(pathname);
-    
+
     if (!cliente && !isAuthPage) {
       // Redirigir al login si no está autenticado y no está en una página de autenticación
-      setRedirectPath('/cliente/login');
+      setRedirectPath('/login');
       setShouldRedirect(true);
     } else if (cliente && isAuthPage) {
       // Redirigir al dashboard si está autenticado y está en una página de autenticación

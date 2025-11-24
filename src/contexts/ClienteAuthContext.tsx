@@ -39,7 +39,7 @@ export function ClienteAuthProvider({ children }: { children: ReactNode }) {
     // Verificar si hay un token guardado al cargar la aplicación
     const token = localStorage.getItem('clienteToken');
     const clienteData = localStorage.getItem('clienteData');
-    
+
     if (token && clienteData) {
       try {
         setCliente(JSON.parse(clienteData));
@@ -54,11 +54,11 @@ export function ClienteAuthProvider({ children }: { children: ReactNode }) {
   const login = async (cedula: string) => {
     try {
       const { data } = await api.post('/api/clientes/login', { cedula });
-      
+
       // Guardar el token y los datos del cliente
       localStorage.setItem('clienteToken', data.token);
       localStorage.setItem('clienteData', JSON.stringify(data.cliente));
-      
+
       setCliente(data.cliente);
       router.push('/cliente/dashboard');
     } catch (error: any) {
@@ -72,7 +72,7 @@ export function ClienteAuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('clienteToken');
     localStorage.removeItem('clienteData');
     setCliente(null);
-    router.push('/cliente/login');
+    router.push('/login');
   };
 
   // Función para actualizar los datos del cliente

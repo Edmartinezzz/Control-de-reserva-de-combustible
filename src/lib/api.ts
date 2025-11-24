@@ -53,19 +53,11 @@ api.interceptors.response.use(
       if (error.response.status === 401 && !error.config.url?.includes('/login')) {
         // No autorizado - token inválido o expirado
         if (typeof window !== 'undefined') {
-          const isCliente = localStorage.getItem('clienteToken');
-
-          if (isCliente) {
-            // Si es un cliente, redirigir al login de cliente
-            localStorage.removeItem('clienteToken');
-            localStorage.removeItem('clienteData');
-            window.location.href = '/cliente/login';
-          } else {
-            // Si es un administrador, redirigir al login de administrador
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/login';
-          }
+          localStorage.removeItem('clienteToken');
+          localStorage.removeItem('clienteData');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
         }
       }
 
@@ -75,7 +67,6 @@ api.interceptors.response.use(
       console.error('No se recibió respuesta del servidor:', error.request);
       throw new Error('No se recibió respuesta del servidor. Verifica tu conexión a internet.');
     }
-
     return Promise.reject(error);
   }
 );
