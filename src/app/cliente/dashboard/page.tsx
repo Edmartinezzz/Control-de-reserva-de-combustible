@@ -33,6 +33,25 @@ export default function ClienteDashboard() {
   const [subclienteSeleccionadoId, setSubclienteSeleccionadoId] = useState<number | null>(null);
   const esInstitucional = true;
 
+  // Obtener datos frescos del cliente desde el backend
+  const { refetch: refetchCliente } = useQuery({
+    queryKey: ['cliente-data', cliente?.id],
+    queryFn: async () => {
+      if (!cliente?.id) return null;
+      try {
+        const { data } = await api.get(`/api/clientes/${cliente.id}`);
+        // Actualizar el contexto y localStorage con datos frescos
+        updateCliente(data);
+        return data;
+      } catch (error) {
+        console.error('Error al obtener datos del cliente:', error);
+        return null;
+      }
+    },
+    enabled: !!cliente?.id,
+    refetchInterval: 60000, // Refrescar cada 60 segundos
+  });
+
   // Obtener agendamientos del cliente
   const { data: agendamientos = [], refetch: refetchAgendamientos } = useQuery({
     queryKey: ['agendamientos-cliente', cliente?.id],
@@ -214,6 +233,7 @@ export default function ClienteDashboard() {
 
       setLitros('');
       refetchAgendamientos(); // Actualizar lista de agendamientos
+      refetchCliente(); // Actualizar datos del cliente desde el backend
     } catch (error: any) {
       console.error('Error al crear agendamiento:', error);
       const errorMsg = error.response?.data?.error || 'Error al crear el agendamiento';
