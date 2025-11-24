@@ -11,6 +11,23 @@ import urllib.parse
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'tu_clave_secreta_muy_segura')  # En producción, usa una variable de entorno
 
+# Configurar JSON Encoder personalizado para manejar fechas y decimales
+from flask.json.provider import DefaultJSONProvider
+import decimal
+from datetime import date, time
+
+class CustomJSONProvider(DefaultJSONProvider):
+    def default(self, obj):
+        if isinstance(obj, date):
+            return obj.isoformat()
+        if isinstance(obj, time):
+            return obj.isoformat()
+        if isinstance(obj, decimal.Decimal):
+            return float(obj)
+        return super().default(obj)
+
+app.json = CustomJSONProvider(app)
+
 # Ruta raíz para health check
 @app.route('/', methods=['GET'])
 def home():
