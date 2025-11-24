@@ -85,22 +85,32 @@ def verificar_reset_diario():
         row = cursor.fetchone()
         
         if not row:
-            print("No se encontró configuración del sistema")
+            print("⚠️ No se encontró configuración del sistema")
             return
         
         ultimo_reset = row['fecha_ultimo_reset']
         
+        # Si fecha_ultimo_reset es NULL, inicializarla a hoy para evitar reset inmediato
+        if ultimo_reset is None:
+            print(f"⚠️ fecha_ultimo_reset era NULL, inicializando a hoy: {hoy_venezuela}")
+            cursor.execute('UPDATE sistema_config SET fecha_ultimo_reset = %s WHERE id = 1', (hoy_venezuela,))
+            db.commit()
+            print("✅ fecha_ultimo_reset inicializada correctamente")
+            return
+        
         # Convertir ultimo_reset a date si es datetime
-        if ultimo_reset and hasattr(ultimo_reset, 'date'):
+        if hasattr(ultimo_reset, 'date'):
             ultimo_reset = ultimo_reset.date()
         
         # Si ya se reseteó hoy, no hacer nada
-        if ultimo_reset and ultimo_reset >= hoy_venezuela:
+        if ultimo_reset >= hoy_venezuela:
+            print(f"✅ Reset ya ejecutado hoy ({ultimo_reset}), no se requiere acción")
             return
         
         # Solo resetear si es después de las 4:00 AM Y no se ha reseteado hoy
         if venezuela_now.hour >= 4:
-            print(f"Ejecutando reset diario automático: {hoy_venezuela} a las {venezuela_now.hour}:{venezuela_now.minute}")
+            print(f"🔄 Ejecutando reset diario automático: {hoy_venezuela} a las {venezuela_now.hour}:{venezuela_now.minute}")
+            print(f"   Último reset fue: {ultimo_reset}")
             
             # Ejecutar reset
             cursor.execute('''
@@ -115,10 +125,14 @@ def verificar_reset_diario():
             cursor.execute('UPDATE sistema_config SET fecha_ultimo_reset = %s WHERE id = 1', (hoy_venezuela,))
             
             db.commit()
-            print(f"Reset diario completado. {cursor.rowcount} clientes actualizados.")
+            print(f"✅ Reset diario completado. {cursor.rowcount} clientes actualizados.")
+        else:
+            print(f"⏰ Es antes de las 4:00 AM ({venezuela_now.hour}:{venezuela_now.minute}), esperando para resetear")
         
     except Exception as e:
-        print(f"Error en reset diario: {e}")
+        print(f"❌ Error en reset diario: {e}")
+        import traceback
+        traceback.print_exc()
         try:
             db = get_db()
             db.rollback()
