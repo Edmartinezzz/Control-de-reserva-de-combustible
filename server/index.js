@@ -344,6 +344,14 @@ async function initDB() {
     // La columna ya existe
   }
 
+  // Agregar columna fecha_ultimo_reset a sistema_config si no existe
+  try {
+    await db.run('ALTER TABLE sistema_config ADD COLUMN fecha_ultimo_reset DATE');
+    console.log('✅ Columna fecha_ultimo_reset agregada a sistema_config');
+  } catch (e) {
+    // La columna ya existe
+  }
+
   // Agregar columnas adicionales a agendamientos si no existen
   try {
     await db.run('ALTER TABLE agendamientos ADD COLUMN codigo_ticket INTEGER');
@@ -1863,6 +1871,20 @@ async function recalcularLitrosClientePadre(clienteId) {
 async function recargarLitrosDiarios() {
   try {
     const fecha = new Date().toISOString();
+    const hoy = getLocalDate();
+
+    // Verificar si ya se ejecutó hoy
+    const config = await db.get('SELECT fecha_ultimo_reset FROM sistema_config WHERE id = 1');
+
+    // Si la columna no existe, la creamos (manejo de error implícito o migración previa necesaria)
+    // Asumimos que existe o que el error se maneja. 
+    // Mejor: verificar si la fecha guardada es hoy.
+
+    if (config && config.fecha_ultimo_reset === hoy) {
+      console.log(`[${fecha}] ℹ️ La recarga diaria ya se ejecutó hoy (${hoy}). Omitiendo.`);
+      return;
+    }
+
     console.log(`[${fecha}] 🌙 Iniciando recarga automática a medianoche - RESTAURANDO LITROS COMPLETOS...`);
 
     // Obtener todos los clientes activos
@@ -1883,7 +1905,7 @@ async function recargarLitrosDiarios() {
         );
 
         clientesRecargados++;
-        console.log(`  ✓ Cliente ${cliente.nombre} (ID: ${cliente.id}): RESTAURADO → ${gasolinaLitros}L gasolina + ${gasoilLitros}L gasoil (Total: ${totalLitros}L)`);
+        // console.log(`  ✓ Cliente ${cliente.nombre} (ID: ${cliente.id}): RESTAURADO`);
       }
     }
 
@@ -1909,6 +1931,14 @@ async function recargarLitrosDiarios() {
       if (padre.id) {
         await recalcularLitrosClientePadre(padre.id);
       }
+    }
+
+    // Actualizar fecha de último reset
+    try {
+      // Intentar actualizar, si falla es porque falta la columna, pero no detenemos el proceso
+      await db.run('UPDATE sistema_config SET fecha_ultimo_reset = ? WHERE id = 1', [hoy]);
+    } catch (e) {
+      console.warn('⚠️ No se pudo actualizar fecha_ultimo_reset en sistema_config. Es posible que la columna no exista.');
     }
 
     console.log(`[${fecha}] 🌙 Recarga de medianoche completada: ${clientesRecargados} clientes con litros restaurados y subclientes recargados.`);

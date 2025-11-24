@@ -16,6 +16,7 @@ import {
   ArcElement,
   PointElement,
   LineElement,
+  Filler,
 } from 'chart.js';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 import { FiTruck, FiPackage, FiUser, FiUsers, FiDollarSign, FiClock, FiCalendar, FiSearch, FiUserPlus, FiLogOut, FiMenu, FiX, FiDownload, FiFilter, FiRefreshCw, FiLock, FiUnlock, FiFileText, FiEye } from 'react-icons/fi';
@@ -33,7 +34,8 @@ ChartJS.register(
   Legend,
   ArcElement,
   PointElement,
-  LineElement
+  LineElement,
+  Filler
 );
 
 
@@ -123,7 +125,7 @@ export default function Dashboard() {
 
   // Preparar datos para gráfica de retiros por día (últimos 7 días)
   const retirosPorDiaData = {
-    labels: statsRetiros.retirosPorDia.map((item: any) => 
+    labels: statsRetiros.retirosPorDia.map((item: any) =>
       format(new Date(item.dia + 'T00:00:00'), 'dd/MM', { locale: es })
     ),
     datasets: [
@@ -243,10 +245,10 @@ export default function Dashboard() {
               <button
                 onClick={async () => {
                   const accion = estadoBloqueo?.bloqueado ? 'desbloquear' : 'bloquear';
-                  const mensaje = estadoBloqueo?.bloqueado 
-                    ? '¿Desbloquear retiros de combustible? Los clientes podrán volver a retirar combustible.' 
+                  const mensaje = estadoBloqueo?.bloqueado
+                    ? '¿Desbloquear retiros de combustible? Los clientes podrán volver a retirar combustible.'
                     : '¿Bloquear retiros de combustible? Ningún cliente podrá retirar combustible hasta que se desbloquee.';
-                  
+
                   if (confirm(mensaje)) {
                     try {
                       const response = await api.post('/api/sistema/bloqueo', {
@@ -259,11 +261,10 @@ export default function Dashboard() {
                     }
                   }
                 }}
-                className={`flex items-center px-4 py-2 text-white rounded-lg transition-colors ${
-                  estadoBloqueo?.bloqueado 
-                    ? 'bg-red-600 hover:bg-red-700' 
+                className={`flex items-center px-4 py-2 text-white rounded-lg transition-colors ${estadoBloqueo?.bloqueado
+                    ? 'bg-red-600 hover:bg-red-700'
                     : 'bg-gray-600 hover:bg-gray-700'
-                }`}
+                  }`}
                 title={estadoBloqueo?.bloqueado ? 'Desbloquear retiros' : 'Bloquear retiros'}
               >
                 {estadoBloqueo?.bloqueado ? (
