@@ -186,20 +186,8 @@ export default function ClienteDashboard() {
 
       const { codigo_ticket, fecha_agendada } = response.data;
 
-      // Actualizar litros disponibles del cliente en memoria (institucional o no)
-      if (cliente) {
-        const clienteActualizado = { ...cliente };
-
-        if (tipoCombustible === 'gasolina') {
-          clienteActualizado.litros_disponibles_gasolina =
-            (cliente.litros_disponibles_gasolina ?? cliente.litros_disponibles ?? 0) - litrosNum;
-        } else {
-          clienteActualizado.litros_disponibles_gasoil =
-            (cliente.litros_disponibles_gasoil ?? cliente.litros_disponibles ?? 0) - litrosNum;
-        }
-
-        updateCliente(clienteActualizado);
-      }
+      // NO actualizar manualmente - dejar que refetchCliente obtenga datos del backend
+      // El backend ya dedujo los litros, solo necesitamos refrescar
 
       // Preparar datos del ticket para el modal
       const ticketInfo = {
@@ -233,7 +221,11 @@ export default function ClienteDashboard() {
 
       setLitros('');
       refetchAgendamientos(); // Actualizar lista de agendamientos
-      refetchCliente(); // Actualizar datos del cliente desde el backend
+
+      // Esperar un momento para que el backend procese, luego refrescar datos
+      setTimeout(() => {
+        refetchCliente(); // Actualizar datos del cliente desde el backend
+      }, 500); // 500ms de delay
     } catch (error: any) {
       console.error('Error al crear agendamiento:', error);
       const errorMsg = error.response?.data?.error || 'Error al crear el agendamiento';
