@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { ClienteAuthProvider, useClienteAuth } from '@/contexts/ClienteAuthContext';
+import { useClienteAuth } from '@/contexts/ClienteAuthContext';
 import { Toaster } from 'react-hot-toast';
 
 // Componente para manejar la protección de rutas
@@ -12,14 +12,12 @@ export default function ClienteLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClienteAuthProvider>
-      <ClienteAuthChecker>
-        <div className="min-h-screen bg-white">
-          <main>{children}</main>
-          <Toaster position="top-right" />
-        </div>
-      </ClienteAuthChecker>
-    </ClienteAuthProvider>
+    <ClienteAuthChecker>
+      <div className="min-h-screen bg-white">
+        <main>{children}</main>
+        <Toaster position="top-right" />
+      </div>
+    </ClienteAuthChecker>
   );
 }
 
