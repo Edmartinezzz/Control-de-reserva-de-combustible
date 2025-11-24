@@ -2,10 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
 const bcrypt = require('bcryptjs');
 const cron = require('node-cron');
+const { initDatabase, getDatabase } = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -42,13 +41,24 @@ function getLocalDate() {
   return new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
 }
 
-// Configuración de la base de datos SQLite
+// Base de datos - se inicializa en startServer()
 let db;
+
+// Función para inicializar la base de datos
 async function initDB() {
-  db = await open({
-    filename: './gas_delivery.db',
-    driver: sqlite3.Database
-  });
+  db = await initDatabase();
+
+  // Si es PostgreSQL, ejecutar schema
+  if (db.isPostgres) {
+    console.log('📋 Ejecutando schema de PostgreSQL...');
+    const fs = require('fs');
+    const schema = fs.readFileSync(__dirname + '/schema.sql', 'utf8');
+    await db.exec(schema);
+    console.log('✅ Schema de PostgreSQL ejecutado');
+    return;
+  }
+
+  // Si es SQLite, crear tablas con el schema existente
 
   // Crear tablas si no existen
   await db.exec(`
