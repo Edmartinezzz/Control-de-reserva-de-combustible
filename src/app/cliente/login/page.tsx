@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useClienteAuth } from '@/contexts/ClienteAuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { FiDroplet, FiUser, FiArrowLeft } from 'react-icons/fi';
@@ -13,10 +13,18 @@ export default function ClienteLogin() {
   const { login } = useClienteAuth();
   const { theme } = useTheme();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const cedulaParam = searchParams.get('cedula');
+    if (cedulaParam) {
+      setCedula(cedulaParam);
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validar formato de cédula venezolana (7 u 8 dígitos)
     const cedulaRegex = /^[0-9]{7,8}$/;
     if (!cedulaRegex.test(cedula)) {
@@ -46,21 +54,21 @@ export default function ClienteLogin() {
         <FiArrowLeft className="h-6 w-6 mr-2" />
         Volver al inicio
       </button>
-      
+
       <div className="max-w-md w-full space-y-8 animate-scale-in">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 transition-colors duration-300">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4 animate-bounce-in">
-              <img 
-                src={theme === 'dark' ? '/logo-dark.png' : '/logo.png'} 
-                alt="Despacho Gas+ Logo" 
+              <img
+                src={theme === 'dark' ? '/logo-dark.png' : '/logo.png'}
+                alt="Despacho Gas+ Logo"
                 className="h-24 w-auto transition-opacity duration-300"
               />
             </div>
             <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">Portal del Usuario</h1>
             <p className="text-gray-600 dark:text-gray-300">Ingresa tu número de cédula para acceder</p>
           </div>
-          
+
           {error && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-400 dark:border-red-700 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg relative mb-6 animate-fade-in-down" role="alert">
               <span className="block sm:inline">{error}</span>
