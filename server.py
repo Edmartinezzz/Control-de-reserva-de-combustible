@@ -1144,8 +1144,24 @@ def crear_agendamiento():
         
         if not cliente_id or not litros:
             return jsonify({'error': 'Faltan datos requeridos'}), 400
+            
+        # 1. Verificar saldo disponible del cliente
+        cursor.execute('SELECT * FROM clientes WHERE id = %s AND activo = TRUE', (cliente_id,))
+        cliente = cursor.fetchone()
         
-        # Generar código de ticket (número secuencial para la fecha agendada)
+        if not cliente:
+            return jsonify({'error': 'Cliente no encontrado'}), 404
+            
+        campo_disponible = f'litros_disponibles_{tipo_combustible}'
+        saldo_actual = cliente.get(campo_disponible, 0)
+        
+        # Validar saldo suficiente
+        if saldo_actual < litros:
+             return jsonify({
+                 'error': f'Saldo insuficiente. Disponible: {saldo_actual}L, Solicitado: {litros}L'
+             }), 400
+        
+        # 2. Generar código de ticket (número secuencial para la fecha agendada)
         cursor.execute('''
             SELECT COALESCE(MAX(codigo_ticket), 0) + 1 as next_ticket
             FROM agendamientos
@@ -1154,7 +1170,7 @@ def crear_agendamiento():
         
         codigo_ticket = cursor.fetchone()['next_ticket']
         
-        # Insertar agendamiento con código de ticket
+        # 3. Insertar agendamiento con código de ticket
         cursor.execute('''
             INSERT INTO agendamientos (
                 cliente_id, tipo_combustible, litros, fecha_agendada, 
@@ -1162,12 +1178,35 @@ def crear_agendamiento():
             ) VALUES (%s, %s, %s, %s, %s, 'pendiente', %s)
         ''', (cliente_id, tipo_combustible, litros, fecha_agendada, subcliente_id, codigo_ticket))
         
+        # 4. ACTUALIZAR SALDO DEL CLIENTE (Restar litros)
+        # Esto faltaba y por eso no se restaban los litros
+        print(f"DEBUG: Descontando {litros}L de {tipo_combustible} al cliente {cliente_id}")
+        cursor.execute(f'''
+            UPDATE clientes 
+            SET litros_disponibles = COALESCE(litros_disponibles, 0) - %s,
+                {campo_disponible} = COALESCE({campo_disponible}, 0) - %s
+            WHERE id = %s
+        ''', (litros, litros, cliente_id))
+        
+        # 5. Si hay subcliente, también actualizar su saldo (opcional, pero recomendado si se lleva control)
+        if subcliente_id:
+            cursor.execute(f'''
+                UPDATE subclientes 
+                SET {campo_disponible} = COALESCE({campo_disponible}, 0) - %s
+                WHERE id = %s
+            ''', (litros, subcliente_id))
+        
+        # 6. Actualizar inventario (opcional en agendamiento, o se hace al entregar)
+        # Por ahora solo restamos del cupo del cliente
+        
         db.commit()
+        
         return jsonify({
             'message': 'Agendamiento creado exitosamente',
             'id': cursor.lastrowid,
             'codigo_ticket': codigo_ticket,
-            'fecha_agendada': fecha_agendada
+            'fecha_agendada': fecha_agendada,
+            'nuevo_saldo': saldo_actual - litros
         }), 201
     except Exception as e:
         db.rollback()
