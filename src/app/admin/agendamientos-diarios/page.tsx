@@ -665,10 +665,10 @@ export default function AgendamientosDiariosPage() {
           </div>
 
           {/* Lista de agendamientos */}
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden transition-colors duration-300">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                   Agendamientos para {new Date(fechaSeleccionada + 'T00:00:00').toLocaleDateString('es-ES', {
                     weekday: 'long',
                     year: 'numeric',
@@ -676,7 +676,7 @@ export default function AgendamientosDiariosPage() {
                     day: 'numeric'
                   })}
                 </h3>
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   {agendamientosFiltrados.length} agendamientos • {totalLitros}L total
                   {agendamientosFiltrados.length !== agendamientos.length && (
                     <span className="text-blue-600"> (filtrados de {agendamientos.length})</span>
@@ -692,8 +692,8 @@ export default function AgendamientosDiariosPage() {
             ) : agendamientos.length === 0 ? (
               <div className="text-center py-12">
                 <FiCalendar className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No hay entregas programadas</h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No hay entregas programadas</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   {fechaSeleccionada === new Date().toISOString().split('T')[0]
                     ? `No hay clientes que deban retirar combustible hoy. Nadie agendó ayer (${new Date(Date.now() - 86400000).toLocaleDateString('es-ES')}) para hoy.`
                     : `No se encontraron agendamientos para ${new Date(fechaSeleccionada + 'T00:00:00').toLocaleDateString('es-ES')}.`
@@ -708,8 +708,8 @@ export default function AgendamientosDiariosPage() {
             ) : agendamientosFiltrados.length === 0 ? (
               <div className="text-center py-12">
                 <FiSearch className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No se encontraron resultados</h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No se encontraron resultados</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   {busqueda || filtroEstado !== 'todos'
                     ? "Intenta ajustar los filtros de búsqueda."
                     : "No hay agendamientos para la fecha seleccionada."
@@ -729,8 +729,8 @@ export default function AgendamientosDiariosPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-900/50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ticket
@@ -755,11 +755,11 @@ export default function AgendamientosDiariosPage() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {agendamientosFiltrados.map((agendamiento: Agendamiento) => (
-                      <tr key={agendamiento.id} className="hover:bg-gray-50">
+                      <tr key={agendamiento.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
                             #{agendamiento.codigo_ticket.toString().padStart(3, '0')}
                           </div>
                         </td>
@@ -787,12 +787,12 @@ export default function AgendamientosDiariosPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${agendamiento.estado === 'procesado'
-                              ? 'bg-green-100 text-green-800'
-                              : agendamiento.estado === 'pendiente'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : agendamiento.estado === 'entregado'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-red-100 text-red-800'
+                            ? 'bg-green-100 text-green-800'
+                            : agendamiento.estado === 'pendiente'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : agendamiento.estado === 'entregado'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-red-100 text-red-800'
                             }`}>
                             {agendamiento.estado === 'procesado' ? 'Procesado' :
                               agendamiento.estado === 'pendiente' ? 'Pendiente' :

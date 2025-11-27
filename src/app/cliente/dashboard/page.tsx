@@ -253,11 +253,11 @@ export default function ClienteDashboard() {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-white shadow rounded-lg p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 mb-6 transition-colors duration-300">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">Bienvenido, {cliente.nombre}</h1>
-            <p className="text-gray-600">Gestiona tu consumo de gas</p>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Bienvenido, {cliente.nombre}</h1>
+            <p className="text-gray-600 dark:text-gray-300">Gestiona tu consumo de gas</p>
           </div>
           <button
             onClick={() => {
@@ -272,12 +272,12 @@ export default function ClienteDashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-blue-50 p-6 rounded-lg">
+          <div className="bg-blue-50 dark:bg-blue-900/30 p-6 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors duration-300">
             <div className="flex items-center mb-4">
-              <div className="p-3 bg-blue-100 rounded-full mr-4">
-                <FiDroplet className="text-blue-600 text-xl" />
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-full mr-4">
+                <FiDroplet className="text-blue-600 dark:text-blue-400 text-xl" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-800">Gasolina Disponible</h3>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Gasolina Disponible</h3>
             </div>
             <p className="text-3xl font-bold text-blue-600">
               {(cliente.litros_disponibles_gasolina ?? cliente.litros_disponibles ?? 0).toFixed(2)} <span className="text-lg">litros</span>

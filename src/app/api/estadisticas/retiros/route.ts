@@ -1,43 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
+import path from 'path';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
 
 export async function GET(request: NextRequest) {
-    const base = process.env.BACKEND_API_BASE_URL;
-    if (base) {
-        try {
-            // Obtener el token de Authorization del header de la petición
-            const authHeader = request.headers.get('authorization');
+    try {
+        // Resolve the SQLite database file (adjust path if needed)
+        const dbPath = path.resolve(process.cwd(), 'gas_delivery.db');
+        const db = await open({ filename: dbPath, driver: sqlite3.Database });
 
-            // Preparar headers para la petición al backend
-            const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-            };
-
-            // Si hay token, pasarlo al backend
-            if (authHeader) {
-                headers['Authorization'] = authHeader;
-            }
-
-            const resp = await fetch(`${base}/api/estadisticas/retiros`, {
-                cache: 'no-store',
-                headers,
-            });
-
-            if (!resp.ok) {
-                const text = await resp.text();
-                return NextResponse.json({ error: 'Error al obtener estadísticas de retiros', details: text }, { status: resp.status });
-            }
-            const data = await resp.json();
-            return NextResponse.json(data);
-        } catch (e: any) {
-            return NextResponse.json({ error: 'No se pudo conectar al backend de estadísticas de retiros' }, { status: 502 });
-        }
+        // Litros retirados hoy
+        const hoy = await db.get(`
+      SELECT COALESCE(SUM(litros), 0) as total
+      FROM retiros
+      WHERE DATE(fecha) = DATE('now', 'localtime')
+    `);
+        // Litros retirados este mes
+        const esteMes = await db.get(`
+      SELECT COALESCE(SUM(litros), 0) as total
+      FROM retiros
+      WHERE strftime('%Y-%m', fecha) = strftime('%Y-%m', 'now', 'localtime')
+    `);
+        // Litros retirados este año
+        const esteAno = await db.get(`
+      SELECT COALESCE(SUM(litros), 0) as total
+      FROM retiros
+      WHERE strftime('%Y', fecha) = strftime('%Y', 'now', 'localtime')
+    `);
+        // Clientes únicos que retiraron hoy
+        const clientesHoy = await db.get(`
+      SELECT COUNT(DISTINCT cliente_id) as total
+      FROM retiros
+      WHERE DATE(fecha) = DATE('now', 'localtime')
+    `);
+        // Litros por mes (últimos 12 meses)
+        const litrosPorMes = await db.all(`
+      SELECT strftime('%Y-%m', fecha) as mes, SUM(litros) as total
+      FROM retiros
+      WHERE fecha >= date('now', '-12 months', 'localtime')
+      GROUP BY strftime('%Y-%m', fecha)
+      ORDER BY mes ASC
+    `);
+        // Retiros por día (últimos 7 días)
+        const retirosPorDia = await db.all(`
+      SELECT DATE(fecha) as dia, SUM(litros) as total, COUNT(DISTINCT cliente_id) as clientes
+      FROM retiros
+      WHERE fecha >= date('now', '-7 days', 'localtime')
+      GROUP BY DATE(fecha)
+      ORDER BY dia ASC
+    `);
+        await db.close();
+        return NextResponse.json({
+            litrosHoy: hoy?.total || 0,
+            litrosMes: esteMes?.total || 0,
+            litrosAno: esteAno?.total || 0,
+            clientesHoy: clientesHoy?.total || 0,
+            litrosPorMes: litrosPorMes || [],
+            retirosPorDia: retirosPorDia || [],
+        });
+    } catch (e: any) {
+        console.error('Error al obtener estadísticas de retiros:', e);
+        return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
     }
-    // Sin backend configurado: responder informativo
-    return NextResponse.json(
-        {
-            error:
-                'Este endpoint de Next.js no está activo. Configure BACKEND_API_BASE_URL para proxy al backend Flask (ruta /api/estadisticas/retiros).',
-        },
-        { status: 503 }
-    );
 }
