@@ -88,6 +88,15 @@ def close_db(error):
         db.close()
 
 def verificar_reset_diario():
+    """
+    Verifica si es necesario resetear los litros disponibles de los clientes.
+    
+    IMPORTANTE: Esta función debe ejecutarse SOLO:
+    - En el login del cliente (para verificar si pasó un nuevo día)
+    - A las 4:00 AM Venezuela time (mediante cron job o scheduler)
+    
+    NO debe ejecutarse en cada consulta de datos del cliente.
+    """
     try:
         # Hora actual en Venezuela (UTC-4)
         utc_now = datetime.utcnow()
@@ -113,6 +122,7 @@ def verificar_reset_diario():
             cursor.execute('UPDATE sistema_config SET fecha_ultimo_reset = %s WHERE id = 1', (hoy_venezuela,))
             db.commit()
             print("✅ fecha_ultimo_reset inicializada correctamente")
+            print("   ℹ️  No se ejecutará reset ahora, se esperará hasta mañana a las 4:00 AM")
             return
         
         # Convertir ultimo_reset a date si es datetime
@@ -126,8 +136,12 @@ def verificar_reset_diario():
         
         # Solo resetear si es después de las 4:00 AM Y no se ha reseteado hoy
         if venezuela_now.hour >= 4:
-            print(f"🔄 Ejecutando reset diario automático: {hoy_venezuela} a las {venezuela_now.hour}:{venezuela_now.minute}")
-            print(f"   Último reset fue: {ultimo_reset}")
+            print("=" * 70)
+            print(f"🔄 EJECUTANDO RESET DIARIO AUTOMÁTICO")
+            print(f"   Fecha: {hoy_venezuela}")
+            print(f"   Hora Venezuela: {venezuela_now.hour:02d}:{venezuela_now.minute:02d}")
+            print(f"   Último reset: {ultimo_reset}")
+            print("=" * 70)
             
             # Ejecutar reset
             cursor.execute('''
@@ -138,16 +152,24 @@ def verificar_reset_diario():
                 WHERE activo = TRUE
             ''')
             
+            clientes_actualizados = cursor.rowcount
+            
             # Actualizar fecha último reset
             cursor.execute('UPDATE sistema_config SET fecha_ultimo_reset = %s WHERE id = 1', (hoy_venezuela,))
             
             db.commit()
-            print(f"✅ Reset diario completado. {cursor.rowcount} clientes actualizados.")
+            
+            print(f"✅ RESET DIARIO COMPLETADO EXITOSAMENTE")
+            print(f"   Clientes actualizados: {clientes_actualizados}")
+            print(f"   Nueva fecha_ultimo_reset: {hoy_venezuela}")
+            print("=" * 70)
         else:
-            print(f"⏰ Es antes de las 4:00 AM ({venezuela_now.hour}:{venezuela_now.minute}), esperando para resetear")
+            print(f"⏰ Es antes de las 4:00 AM ({venezuela_now.hour:02d}:{venezuela_now.minute:02d})")
+            print(f"   Esperando hasta las 4:00 AM para ejecutar reset")
+            print(f"   Último reset: {ultimo_reset}")
         
     except Exception as e:
-        print(f"❌ Error en reset diario: {e}")
+        print(f"❌ ERROR en reset diario: {e}")
         import traceback
         traceback.print_exc()
         try:
@@ -579,7 +601,10 @@ def obtener_clientes_lista():
 @app.route('/api/clientes/<int:cliente_id>', methods=['GET'])
 @token_required
 def obtener_cliente(cliente_id):
-    verificar_reset_diario()
+    # ❌ REMOVED: verificar_reset_diario() - This was causing resets on every data fetch!
+    # The reset should ONLY happen at 4:00 AM, not every time the dashboard loads
+    # Reset is still triggered on login (see login_cliente endpoint)
+    
     db = get_db()
     cursor = db.cursor()
     
