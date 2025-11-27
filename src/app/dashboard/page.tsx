@@ -184,16 +184,16 @@ export default function Dashboard() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-100 p-4 md:p-8">
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-4 md:p-8 transition-colors duration-300">
         <header className="mb-8">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-800">Panel de Control</h1>
-              <p className="text-gray-600">Bienvenido, {user?.nombre || 'Usuario'}</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-800 dark:text-white">Panel de Control</h1>
+              <p className="text-gray-600 dark:text-gray-300">Bienvenido, {user?.nombre || 'Usuario'}</p>
               {estadoBloqueo?.bloqueado && (
-                <div className="mt-2 flex items-center px-3 py-1 bg-red-100 border border-red-300 rounded-lg">
-                  <FiLock className="mr-2 h-4 w-4 text-red-600" />
-                  <span className="text-sm font-medium text-red-800">Retiros de combustible BLOQUEADOS</span>
+                <div className="mt-2 flex items-center px-3 py-1 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-800 rounded-lg">
+                  <FiLock className="mr-2 h-4 w-4 text-red-600 dark:text-red-400" />
+                  <span className="text-sm font-medium text-red-800 dark:text-red-300">Retiros de combustible BLOQUEADOS</span>
                 </div>
               )}
             </div>
@@ -262,8 +262,8 @@ export default function Dashboard() {
                   }
                 }}
                 className={`flex items-center px-4 py-2 text-white rounded-lg transition-colors ${estadoBloqueo?.bloqueado
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-gray-600 hover:bg-gray-700'
+                  ? 'bg-red-600 hover:bg-red-700'
+                  : 'bg-gray-600 hover:bg-gray-700'
                   }`}
                 title={estadoBloqueo?.bloqueado ? 'Desbloquear retiros' : 'Bloquear retiros'}
               >
@@ -303,72 +303,72 @@ export default function Dashboard() {
 
           {/* Tarjetas adicionales de estadísticas */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-blue-100 to-blue-50 border border-blue-200 rounded-xl shadow p-6">
-              <h3 className="text-sm font-semibold mb-2 text-blue-800">Litros Retirados Hoy</h3>
-              <p className="text-4xl font-bold text-blue-600">{statsRetiros.litrosHoy.toFixed(2)} <span className="text-2xl">L</span></p>
-              <p className="text-sm text-blue-500 mt-2">{statsRetiros.clientesHoy} clientes retiraron hoy</p>
+            <div className="bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 rounded-xl shadow p-6 transition-colors duration-300">
+              <h3 className="text-sm font-semibold mb-2 text-blue-800 dark:text-blue-300">Litros Retirados Hoy</h3>
+              <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">{statsRetiros.litrosHoy.toFixed(2)} <span className="text-2xl">L</span></p>
+              <p className="text-sm text-blue-500 dark:text-blue-400 mt-2">{statsRetiros.clientesHoy} clientes retiraron hoy</p>
             </div>
 
-            <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl shadow p-6">
-              <h3 className="text-sm font-semibold mb-2 text-green-800">Litros Este Mes</h3>
-              <p className="text-4xl font-bold text-green-600">{statsRetiros.litrosMes.toFixed(2)} <span className="text-2xl">L</span></p>
-              <p className="text-sm text-green-500 mt-2">Acumulado mensual</p>
+            <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/20 border border-green-200 dark:border-green-800 rounded-xl shadow p-6 transition-colors duration-300">
+              <h3 className="text-sm font-semibold mb-2 text-green-800 dark:text-green-300">Litros Este Mes</h3>
+              <p className="text-4xl font-bold text-green-600 dark:text-green-400">{statsRetiros.litrosMes.toFixed(2)} <span className="text-2xl">L</span></p>
+              <p className="text-sm text-green-500 dark:text-green-400 mt-2">Acumulado mensual</p>
             </div>
 
-            <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-xl shadow p-6">
-              <h3 className="text-sm font-semibold mb-2 text-amber-800">Litros Este Año</h3>
-              <p className="text-4xl font-bold text-amber-600">{statsRetiros.litrosAno.toFixed(2)} <span className="text-2xl">L</span></p>
-              <p className="text-sm text-amber-500 mt-2">Acumulado anual</p>
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/20 border border-amber-200 dark:border-amber-800 rounded-xl shadow p-6 transition-colors duration-300">
+              <h3 className="text-sm font-semibold mb-2 text-amber-800 dark:text-amber-300">Litros Este Año</h3>
+              <p className="text-4xl font-bold text-amber-600 dark:text-amber-400">{statsRetiros.litrosAno.toFixed(2)} <span className="text-2xl">L</span></p>
+              <p className="text-sm text-amber-500 dark:text-amber-400 mt-2">Acumulado anual</p>
             </div>
           </div>
 
           {/* Gráficas */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-lg shadow">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow transition-colors duration-300">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Retiros por Día (Últimos 7 días)</h3>
-                <span className="text-xs text-gray-500">Actualización en tiempo real</span>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Retiros por Día (Últimos 7 días)</h3>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Actualización en tiempo real</span>
               </div>
               <div className="h-80">
                 {statsRetiros.retirosPorDia.length > 0 ? (
                   <Bar options={opcionesGrafica} data={retirosPorDiaData} />
                 ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400">
+                  <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
                     No hay datos disponibles
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow transition-colors duration-300">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Resumen de Litros</h3>
-                <span className="text-xs text-gray-500">Hoy, Mes, Año</span>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Resumen de Litros</h3>
+                <span className="text-xs text-gray-500 dark:text-gray-400">Hoy, Mes, Año</span>
               </div>
               <div className="h-80 flex items-center justify-center">
                 {(statsRetiros.litrosHoy > 0 || statsRetiros.litrosMes > 0 || statsRetiros.litrosAno > 0) ? (
                   <Pie data={resumenData} options={opcionesGrafica} />
                 ) : (
-                  <div className="text-gray-400">No hay retiros registrados</div>
+                  <div className="text-gray-400 dark:text-gray-500">No hay retiros registrados</div>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
+          <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg mb-8 transition-colors duration-300">
             <div className="px-4 py-5 sm:px-6 flex items-center justify-between">
               <div>
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Litros Retirados por Mes</h3>
-                <p className="text-sm text-gray-500 mt-1">Últimos 12 meses - Identifica los meses con más retiros</p>
+                <h3 className="text-lg leading-6 font-medium text-gray-900 dark:text-white">Litros Retirados por Mes</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Últimos 12 meses - Identifica los meses con más retiros</p>
               </div>
-              <span className="text-xs text-gray-500">Actualización automática</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">Actualización automática</span>
             </div>
             <div className="px-4 py-5 sm:p-6">
               <div className="h-80">
                 {statsRetiros.litrosPorMes.length > 0 ? (
                   <Line options={opcionesGrafica} data={litrosPorMesData} />
                 ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400">
+                  <div className="flex items-center justify-center h-full text-gray-400 dark:text-gray-500">
                     No hay datos disponibles
                   </div>
                 )}
@@ -377,11 +377,11 @@ export default function Dashboard() {
           </div>
 
           {/* Tabla de últimos retiros */}
-          <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+          <div className="bg-white dark:bg-gray-800 shadow overflow-hidden sm:rounded-lg transition-colors duration-300">
             <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
               <div>
                 <h3 className="text-lg leading-6 font-semibold text-blue-800 dark:text-blue-400">Lista de Usuarios Registrados</h3>
-                <p className="text-sm text-gray-500 mt-1">Vista previa de usuarios - Haz clic en "Ver Todos" para la lista completa</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Vista previa de usuarios - Haz clic en "Ver Todos" para la lista completa</p>
               </div>
               <a
                 href="/admin/usuarios"
@@ -397,12 +397,12 @@ export default function Dashboard() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                 </div>
               ) : usuarios.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                   No hay usuarios registrados
                 </div>
               ) : (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-900/50">
                     <tr>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Usuario
@@ -424,27 +424,27 @@ export default function Dashboard() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {usuarios.slice(0, 10).map((usuario: any) => (
-                      <tr key={usuario.id} className="hover:bg-gray-50">
+                      <tr key={usuario.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-8 w-8">
-                              <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                <FiUser className="h-4 w-4 text-blue-600" />
+                              <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                <FiUser className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                               </div>
                             </div>
                             <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
                                 {usuario.nombre}
                               </div>
-                              <div className="text-sm text-gray-500">
+                              <div className="text-sm text-gray-500 dark:text-gray-400">
                                 {usuario.placa || 'Sin placa'}
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                           {usuario.cedula}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
