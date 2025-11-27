@@ -1033,11 +1033,11 @@ def obtener_estadisticas_retiros():
     cursor = db.cursor()
     
     try:
-        # Litros hoy (Suma de retiros directos + agendamientos activos)
+        # Litros hoy (Suma de retiros directos + agendamientos ENTREGADOS)
         cursor.execute('''
             SELECT 
                 (SELECT COALESCE(SUM(litros), 0) FROM retiros WHERE DATE(fecha) = CURRENT_DATE) +
-                (SELECT COALESCE(SUM(litros), 0) FROM agendamientos WHERE fecha_agendada = CURRENT_DATE AND estado != 'cancelado') 
+                (SELECT COALESCE(SUM(litros), 0) FROM agendamientos WHERE fecha_agendada = CURRENT_DATE AND estado = 'entregado') 
             as total
         ''')
         res = cursor.fetchone()
@@ -1047,7 +1047,7 @@ def obtener_estadisticas_retiros():
         cursor.execute('''
             SELECT 
                 (SELECT COALESCE(SUM(litros), 0) FROM retiros WHERE TO_CHAR(fecha, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM')) +
-                (SELECT COALESCE(SUM(litros), 0) FROM agendamientos WHERE TO_CHAR(fecha_agendada, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM') AND estado != 'cancelado')
+                (SELECT COALESCE(SUM(litros), 0) FROM agendamientos WHERE TO_CHAR(fecha_agendada, 'YYYY-MM') = TO_CHAR(CURRENT_DATE, 'YYYY-MM') AND estado = 'entregado')
             as total
         ''')
         res = cursor.fetchone()
@@ -1057,7 +1057,7 @@ def obtener_estadisticas_retiros():
         cursor.execute('''
             SELECT 
                 (SELECT COALESCE(SUM(litros), 0) FROM retiros WHERE TO_CHAR(fecha, 'YYYY') = TO_CHAR(CURRENT_DATE, 'YYYY')) +
-                (SELECT COALESCE(SUM(litros), 0) FROM agendamientos WHERE TO_CHAR(fecha_agendada, 'YYYY') = TO_CHAR(CURRENT_DATE, 'YYYY') AND estado != 'cancelado')
+                (SELECT COALESCE(SUM(litros), 0) FROM agendamientos WHERE TO_CHAR(fecha_agendada, 'YYYY') = TO_CHAR(CURRENT_DATE, 'YYYY') AND estado = 'entregado')
             as total
         ''')
         res = cursor.fetchone()
@@ -1068,7 +1068,7 @@ def obtener_estadisticas_retiros():
             SELECT COUNT(DISTINCT cliente_id) as total FROM (
                 SELECT cliente_id FROM retiros WHERE DATE(fecha) = CURRENT_DATE
                 UNION
-                SELECT cliente_id FROM agendamientos WHERE fecha_agendada = CURRENT_DATE AND estado != 'cancelado'
+                SELECT cliente_id FROM agendamientos WHERE fecha_agendada = CURRENT_DATE AND estado = 'entregado'
             ) as combined
         ''')
         clientes_hoy = cursor.fetchone()['total']
@@ -1079,7 +1079,7 @@ def obtener_estadisticas_retiros():
             FROM (
                 SELECT DATE(fecha) as date_val, litros as total FROM retiros WHERE DATE(fecha) >= CURRENT_DATE - INTERVAL '7 days'
                 UNION ALL
-                SELECT fecha_agendada as date_val, litros as total FROM agendamientos WHERE fecha_agendada >= CURRENT_DATE - INTERVAL '7 days' AND estado != 'cancelado'
+                SELECT fecha_agendada as date_val, litros as total FROM agendamientos WHERE fecha_agendada >= CURRENT_DATE - INTERVAL '7 days' AND estado = 'entregado'
             ) as combined
             GROUP BY date_val
             ORDER BY date_val
@@ -1092,7 +1092,7 @@ def obtener_estadisticas_retiros():
             FROM (
                 SELECT TO_CHAR(fecha, 'YYYY-MM') as month_val, litros as total FROM retiros WHERE DATE(fecha) >= CURRENT_DATE - INTERVAL '12 months'
                 UNION ALL
-                SELECT TO_CHAR(fecha_agendada, 'YYYY-MM') as month_val, litros as total FROM agendamientos WHERE fecha_agendada >= CURRENT_DATE - INTERVAL '12 months' AND estado != 'cancelado'
+                SELECT TO_CHAR(fecha_agendada, 'YYYY-MM') as month_val, litros as total FROM agendamientos WHERE fecha_agendada >= CURRENT_DATE - INTERVAL '12 months' AND estado = 'entregado'
             ) as combined
             GROUP BY month_val
             ORDER BY month_val
