@@ -282,22 +282,22 @@ export default function ClienteDashboard() {
             <p className="text-3xl font-bold text-blue-600">
               {(cliente.litros_disponibles_gasolina ?? cliente.litros_disponibles ?? 0).toFixed(2)} <span className="text-lg">litros</span>
             </p>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               de {(cliente.litros_mes_gasolina ?? cliente.litros_mes ?? 0).toFixed(2)} litros mensuales
             </p>
           </div>
 
-          <div className="bg-green-50 p-6 rounded-lg">
+          <div className="bg-green-50 dark:bg-green-900/30 p-6 rounded-lg border border-green-200 dark:border-green-800 transition-colors duration-300">
             <div className="flex items-center mb-4">
-              <div className="p-3 bg-green-100 rounded-full mr-4">
-                <FiTruck className="text-green-600 text-xl" />
+              <div className="p-3 bg-green-100 dark:bg-green-900/50 rounded-full mr-4">
+                <FiTruck className="text-green-600 dark:text-green-400 text-xl" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-800">Gasoil Disponible</h3>
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Gasoil Disponible</h3>
             </div>
-            <p className="text-3xl font-bold text-green-600">
+            <p className="text-3xl font-bold text-green-600 dark:text-green-400">
               {(cliente.litros_disponibles_gasoil ?? 0).toFixed(2)} <span className="text-lg">litros</span>
             </p>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
               de {(cliente.litros_mes_gasoil ?? 0).toFixed(2)} litros mensuales
             </p>
           </div>
@@ -310,14 +310,14 @@ export default function ClienteDashboard() {
           (tipoCombustible === 'gasolina' && (estadoInventario?.inventario?.gasolina || 0) <= 0) ||
           (tipoCombustible === 'gasoil' && (estadoInventario?.inventario?.gasoil || 0) <= 0)
         ) && (
-            <div className="bg-red-50 border-2 border-red-300 rounded-lg p-6 mb-6 animate-pulse">
+            <div className="bg-red-50 dark:bg-red-900/30 border-2 border-red-300 dark:border-red-800 rounded-lg p-6 mb-6 animate-pulse transition-colors duration-300">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <FiAlertTriangle className="h-10 w-10 text-red-600" />
                 </div>
                 <div className="ml-4 flex-1">
-                  <h3 className="text-xl font-bold text-red-900 mb-2">🚫 {tipoCombustible.toUpperCase()} NO DISPONIBLE</h3>
-                  <p className="text-red-800 font-medium mb-3">
+                  <h3 className="text-xl font-bold text-red-900 dark:text-red-200 mb-2">🚫 {tipoCombustible.toUpperCase()} NO DISPONIBLE</h3>
+                  <p className="text-red-800 dark:text-red-300 font-medium mb-3">
                     El inventario de {tipoCombustible} está agotado. No se pueden realizar agendamientos hasta que se reabastezca.
                   </p>
                   <div className="flex flex-wrap items-center gap-3">
