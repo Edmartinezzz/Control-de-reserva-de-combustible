@@ -350,16 +350,16 @@ export default function ClienteDashboard() {
 
 
         {/* Formulario de agendamiento */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Agendar Retiro para Mañana</h3>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-6 transition-colors duration-300">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Agendar Retiro para Mañana</h3>
 
           {/* Selección de trabajador (subcliente) para clientes institucionales */}
           {esInstitucional && (
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Trabajadores</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Trabajadores</label>
               {subclientes.length === 0 ? (
                 <div className="flex flex-col space-y-2">
-                  <p className="text-sm text-red-600">
+                  <p className="text-sm text-red-600 dark:text-red-400">
                     No tiene trabajadores registrados.
                   </p>
                   <button
@@ -373,7 +373,7 @@ export default function ClienteDashboard() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Selecciona el trabajador y el tipo de combustible para este retiro.
                   </p>
                   <div className="space-y-2">
@@ -382,12 +382,12 @@ export default function ClienteDashboard() {
                       return (
                         <div
                           key={sub.id}
-                          className={`flex items-center justify-between border rounded-md px-3 py-2 ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
+                          className={`flex items-center justify-between border rounded-md px-3 py-2 transition-colors ${isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 dark:border-blue-400' : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700'
                             }`}
                         >
                           <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-800">{sub.nombre}</span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-sm font-medium text-gray-800 dark:text-white">{sub.nombre}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
                               Cédula: {sub.cedula || 'N/A'}{sub.placa ? ` · Placa: ${sub.placa}` : ''}
                             </span>
                           </div>
@@ -441,14 +441,14 @@ export default function ClienteDashboard() {
           {/* Selección de Tipo de Combustible (solo para clientes no institucionales) */}
           {!esInstitucional && (
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-3">Tipo de Combustible</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Tipo de Combustible</label>
               <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={() => setTipoCombustible('gasolina')}
                   className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg border-2 transition-all duration-200 ${tipoCombustible === 'gasolina'
-                    ? 'border-blue-500 bg-blue-50 text-blue-700'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
                     }`}
                 >
                   <FiDroplet className="mr-2 h-5 w-5" />
@@ -459,8 +459,8 @@ export default function ClienteDashboard() {
                   type="button"
                   onClick={() => setTipoCombustible('gasoil')}
                   className={`flex-1 flex items-center justify-center px-4 py-3 rounded-lg border-2 transition-all duration-200 ${tipoCombustible === 'gasoil'
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    ? 'border-green-500 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-400 dark:hover:border-gray-500'
                     }`}
                 >
                   <FiTruck className="mr-2 h-5 w-5" />
@@ -470,15 +470,15 @@ export default function ClienteDashboard() {
             </div>
           )}
 
-          <div className="mb-3 p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800">
+          <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800 transition-colors duration-300">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
               📅 <strong>Nuevo Sistema:</strong> Los retiros se agendan para el día siguiente.
               El administrador procesará tu solicitud a las 5:00 AM.
             </p>
           </div>
           <form onSubmit={handleAgendar} className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
-              <label htmlFor="litros" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="litros" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Cantidad de Litros
               </label>
               <input
@@ -493,7 +493,7 @@ export default function ClienteDashboard() {
                   : (cliente?.litros_disponibles_gasoil ?? cliente?.litros_disponibles ?? 0)
                 }
                 disabled={!estadoInventario?.disponible || (estadoInventario?.inventario?.[tipoCombustible] || 0) <= 0 || isLoading}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed"
                 required
               />
             </div>
@@ -592,42 +592,42 @@ export default function ClienteDashboard() {
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-xl font-bold text-gray-800 mb-4">Mis Agendamientos</h2>
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6 transition-colors duration-300">
+        <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Mis Agendamientos</h2>
 
         {agendamientos.length === 0 ? (
           <div className="text-center py-8">
             <FiCalendar className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No hay agendamientos</h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No hay agendamientos</h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Cuando agendes un retiro, aparecerá aquí con su número de ticket.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             {agendamientos.map((agendamiento: any) => (
-              <div key={agendamiento.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+              <div key={agendamiento.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-750 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="flex-shrink-0">
-                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-blue-600 font-bold text-lg">
+                      <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+                        <span className="text-blue-600 dark:text-blue-400 font-bold text-lg">
                           #{agendamiento.codigo_ticket?.toString().padStart(3, '0') || 'N/A'}
                         </span>
                       </div>
                     </div>
                     <div>
-                      <h3 className="text-lg font-medium text-gray-900">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                         {agendamiento.litros}L de {agendamiento.tipo_combustible}
                       </h3>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         📅 Fecha: {new Date(agendamiento.fecha_agendada).toLocaleDateString('es-ES')}
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         🕐 Creado: {new Date(agendamiento.fecha_creacion).toLocaleDateString('es-ES')} a las {new Date(agendamiento.fecha_creacion).toLocaleTimeString('es-ES')}
                       </p>
                       {agendamiento.subcliente_nombre && (
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           👷 Trabajador: {agendamiento.subcliente_nombre}
                           {agendamiento.subcliente_cedula ? ` · CI: ${agendamiento.subcliente_cedula}` : ''}
                           {agendamiento.subcliente_placa ? ` · Placa: ${agendamiento.subcliente_placa}` : ''}
