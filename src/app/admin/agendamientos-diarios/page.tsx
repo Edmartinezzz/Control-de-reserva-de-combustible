@@ -102,7 +102,7 @@ export default function AgendamientosDiariosPage() {
       await api.put('/api/sistema/limite-diario', {
         limite: parseFloat(nuevoLimite)
       });
-      
+
       toast.success('Límite diario actualizado exitosamente');
       setNuevoLimite('');
       setMostrarConfiguracion(false);
@@ -168,7 +168,7 @@ export default function AgendamientosDiariosPage() {
 
   const descargarListaPDF = () => {
     const doc = new jsPDF('p', 'mm', 'a4'); // Portrait
-    
+
     // Colores limpios y profesionales
     const azul: [number, number, number] = [37, 99, 235];
     const verde: [number, number, number] = [34, 197, 94];
@@ -176,60 +176,60 @@ export default function AgendamientosDiariosPage() {
     const rojo: [number, number, number] = [239, 68, 68];
     const gris: [number, number, number] = [75, 85, 99];
     const grisClaro: [number, number, number] = [248, 250, 252];
-    
+
     // HEADER LIMPIO Y PROFESIONAL
     doc.setFillColor(...azul);
     doc.rect(0, 0, 210, 35, 'F');
-    
+
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     doc.text('SISTEMA DE DESPACHO DE GAS', 15, 15);
-    
+
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
     doc.text('Lista de Validacion de Tickets', 15, 25);
-    
+
     // Fecha en el header
     const fecha = new Date(fechaSeleccionada + 'T00:00:00').toLocaleDateString('es-ES');
     doc.text(`Fecha: ${fecha}`, 130, 15);
     doc.text(`Total: ${agendamientosFiltrados.length} agendamientos`, 130, 25);
-    
+
     // ESTADÍSTICAS SIMPLES
     let y = 45;
-    
+
     // Fondo para estadísticas
     doc.setFillColor(...grisClaro);
     doc.rect(15, y, 180, 25, 'F');
-    
+
     doc.setTextColor(...gris);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    
+
     // Estadísticas en línea
     doc.text(`TOTAL: ${estadisticas.total}`, 25, y + 8);
     doc.text(`PENDIENTES: ${estadisticas.pendientes}`, 70, y + 8);
     doc.text(`ENTREGADOS: ${estadisticas.entregados}`, 25, y + 16);
     doc.text(`PROCESADOS: ${estadisticas.procesados}`, 70, y + 16);
-    
+
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.text('Cada agendamiento incluye su ticket oficial para validacion', 25, y + 18);
-    
+
     y += 35;
-    
+
     // LISTA DE AGENDAMIENTOS - SOLO DATOS
     doc.setTextColor(...gris);
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.text('LISTA DE AGENDAMIENTOS DIARIOS', 15, y);
-    
+
     y += 15;
-    
+
     // Headers de la tabla mejorados
     doc.setFillColor(...azul);
     doc.rect(15, y, 180, 10, 'F');
-    
+
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
@@ -239,26 +239,26 @@ export default function AgendamientosDiariosPage() {
     doc.text('TELEFONO', 115, y + 6);
     doc.text('LITROS', 150, y + 6);
     doc.text('ESTADO', 170, y + 6);
-    
+
     y += 15;
-    
+
     // Cada agendamiento - diseño limpio
     agendamientosFiltrados.forEach((agendamiento: Agendamiento, index: number) => {
       const itemY = y + (index * 22);
-      
+
       // Fondo alternado
       if (index % 2 === 0) {
         doc.setFillColor(...grisClaro);
         doc.rect(15, itemY - 2, 180, 22, 'F');
       }
-      
+
       // Número de ticket destacado
       const ticketNum = agendamiento.codigo_ticket.toString().padStart(3, '0');
       doc.setTextColor(...azul);
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
       doc.text(`#${ticketNum}`, 18, itemY + 6);
-      
+
       // Información del cliente - Primera línea
       doc.setTextColor(...gris);
       doc.setFontSize(8);
@@ -266,13 +266,13 @@ export default function AgendamientosDiariosPage() {
       doc.text(agendamiento.cliente_nombre.substring(0, 15), 45, itemY + 6);
       doc.text(agendamiento.cedula, 85, itemY + 6);
       doc.text(agendamiento.telefono, 115, itemY + 6);
-      
+
       // Litros destacados
       doc.setTextColor(...verde);
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.text(`${agendamiento.litros}L`, 150, itemY + 6);
-      
+
       // Placa y trabajador en segunda línea
       doc.setTextColor(...gris);
       doc.setFontSize(7);
@@ -281,11 +281,11 @@ export default function AgendamientosDiariosPage() {
         ? ` · Trabajador: ${agendamiento.subcliente_nombre}`
         : '';
       doc.text(`Placa: ${agendamiento.placa || 'N/A'}${trabajadorTexto}`, 45, itemY + 12);
-      
+
       // Estado con color
       let estadoColor: [number, number, number];
       let estadoTexto = '';
-      
+
       switch (agendamiento.estado) {
         case 'pendiente':
           estadoColor = amarillo;
@@ -303,53 +303,53 @@ export default function AgendamientosDiariosPage() {
           estadoColor = gris;
           estadoTexto = agendamiento.estado.toUpperCase();
       }
-      
+
       doc.setTextColor(...estadoColor);
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
       doc.text(estadoTexto, 170, itemY + 6);
-      
+
       // Fecha de creación en segunda línea
       doc.setTextColor(120, 120, 120);
       doc.setFontSize(7);
       doc.setFont('helvetica', 'normal');
       doc.text(`Creado: ${new Date(agendamiento.fecha_creacion).toLocaleDateString('es-ES')}`, 115, itemY + 12);
-      
+
       // Línea separadora sutil
       doc.setDrawColor(200, 200, 200);
       doc.setLineWidth(0.3);
       doc.line(15, itemY + 18, 195, itemY + 18);
     });
-    
+
     // FOOTER SIMPLE
     const totalPages = doc.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      
+
       // Línea del footer
       doc.setDrawColor(...azul);
       doc.setLineWidth(2);
       doc.line(15, 270, 195, 270);
-      
+
       // Información del footer
       doc.setTextColor(...gris);
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.text(`Generado: ${new Date().toLocaleDateString('es-ES')} ${new Date().toLocaleTimeString('es-ES')}`, 15, 277);
       doc.text('Documento Oficial - Sistema de Despacho de Gas', 15, 282);
-      
+
       // Página
       doc.text(`Pagina ${i} de ${totalPages}`, 150, 277);
-      
+
       // Marca
       doc.setFont('helvetica', 'bold');
       doc.text('DESPACHO GAS+', 150, 282);
     }
-    
+
     // Guardar PDF
     const fileName = `Lista_Tickets_${fechaSeleccionada}.pdf`;
     doc.save(fileName);
-    
+
     toast.success('PDF generado correctamente', {
       duration: 3000,
       icon: '📄'
@@ -359,14 +359,14 @@ export default function AgendamientosDiariosPage() {
   // Filtrar agendamientos según búsqueda y filtros
   const agendamientosFiltrados = agendamientos.filter((agendamiento: Agendamiento) => {
     // Filtro por búsqueda (ticket, nombre, cédula)
-    const coincideBusqueda = busqueda === '' || 
+    const coincideBusqueda = busqueda === '' ||
       agendamiento.codigo_ticket.toString().padStart(3, '0').includes(busqueda) ||
       agendamiento.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
       agendamiento.cedula.includes(busqueda);
-    
+
     // Filtro por estado
     const coincideEstado = filtroEstado === 'todos' || agendamiento.estado === filtroEstado;
-    
+
     return coincideBusqueda && coincideEstado;
   });
 
@@ -384,27 +384,27 @@ export default function AgendamientosDiariosPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-8 transition-colors duration-300">
         <div className="max-w-7xl mx-auto">
           <BackButton href="/dashboard" label="Volver al Dashboard" className="mb-6" />
 
           {/* Header */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6 transition-colors duration-300">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Lista Diaria - Entregas de Hoy</h1>
-                <p className="text-gray-600 mt-1">Clientes que deben retirar combustible hoy ({new Date().toLocaleDateString('es-ES')})</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Lista Diaria - Entregas de Hoy</h1>
+                <p className="text-gray-600 dark:text-gray-300 mt-1">Clientes que deben retirar combustible hoy ({new Date().toLocaleDateString('es-ES')})</p>
               </div>
-              
+
               <div className="flex flex-col sm:flex-row gap-3 mt-4 md:mt-0">
                 <button
                   onClick={() => setMostrarConfiguracion(!mostrarConfiguracion)}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                   <FiSettings className="mr-2 h-4 w-4" />
                   Configurar Límite
                 </button>
-                
+
                 <button
                   onClick={descargarLista}
                   disabled={agendamientos.length === 0}
@@ -419,11 +419,11 @@ export default function AgendamientosDiariosPage() {
 
           {/* Configuración de límite */}
           {mostrarConfiguracion && (
-            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Configurar Límite Diario</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6 transition-colors duration-300">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Configurar Límite Diario</h3>
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
-                  <label htmlFor="limite" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="limite" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Límite diario de gasolina (litros)
                   </label>
                   <input
@@ -432,7 +432,7 @@ export default function AgendamientosDiariosPage() {
                     value={nuevoLimite}
                     onChange={(e) => setNuevoLimite(e.target.value)}
                     placeholder={`Actual: ${limites?.limite_diario || 2000}L`}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
                 <div className="flex items-end gap-2">
@@ -547,7 +547,7 @@ export default function AgendamientosDiariosPage() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <div className="flex items-center">
                   <FiCalendar className="h-8 w-8 text-yellow-600" />
@@ -557,7 +557,7 @@ export default function AgendamientosDiariosPage() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center">
                   <FiClock className="h-8 w-8 text-green-600" />
@@ -567,7 +567,7 @@ export default function AgendamientosDiariosPage() {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <div className="flex items-center">
                   <FiUsers className="h-8 w-8 text-purple-600" />
@@ -581,7 +581,7 @@ export default function AgendamientosDiariosPage() {
           )}
 
           {/* Barra de Búsqueda y Filtros */}
-          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6 transition-colors duration-300">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               {/* Búsqueda */}
               <div className="flex-1 max-w-md">
@@ -592,7 +592,7 @@ export default function AgendamientosDiariosPage() {
                     placeholder="Buscar por ticket, nombre o cédula..."
                     value={busqueda}
                     onChange={(e) => setBusqueda(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
@@ -603,7 +603,7 @@ export default function AgendamientosDiariosPage() {
                 <select
                   value={filtroEstado}
                   onChange={(e) => setFiltroEstado(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="todos">Todos los estados</option>
                   <option value="pendiente">Pendientes</option>
@@ -622,7 +622,7 @@ export default function AgendamientosDiariosPage() {
                   type="date"
                   value={fechaSeleccionada}
                   onChange={(e) => setFechaSeleccionada(e.target.value)}
-                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
 
                 {/* Botón Descargar PDF */}
@@ -694,7 +694,7 @@ export default function AgendamientosDiariosPage() {
                 <FiCalendar className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">No hay entregas programadas</h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  {fechaSeleccionada === new Date().toISOString().split('T')[0] 
+                  {fechaSeleccionada === new Date().toISOString().split('T')[0]
                     ? `No hay clientes que deban retirar combustible hoy. Nadie agendó ayer (${new Date(Date.now() - 86400000).toLocaleDateString('es-ES')}) para hoy.`
                     : `No se encontraron agendamientos para ${new Date(fechaSeleccionada + 'T00:00:00').toLocaleDateString('es-ES')}.`
                   }
@@ -710,7 +710,7 @@ export default function AgendamientosDiariosPage() {
                 <FiSearch className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">No se encontraron resultados</h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  {busqueda || filtroEstado !== 'todos' 
+                  {busqueda || filtroEstado !== 'todos'
                     ? "Intenta ajustar los filtros de búsqueda."
                     : "No hay agendamientos para la fecha seleccionada."
                   }
@@ -786,18 +786,17 @@ export default function AgendamientosDiariosPage() {
                           <div className="text-sm font-medium text-gray-900">{agendamiento.litros}L</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            agendamiento.estado === 'procesado' 
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${agendamiento.estado === 'procesado'
                               ? 'bg-green-100 text-green-800'
                               : agendamiento.estado === 'pendiente'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : agendamiento.estado === 'entregado'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {agendamiento.estado === 'procesado' ? 'Procesado' : 
-                             agendamiento.estado === 'pendiente' ? 'Pendiente' : 
-                             agendamiento.estado === 'entregado' ? 'Entregado' : 'Cancelado'}
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : agendamiento.estado === 'entregado'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-red-100 text-red-800'
+                            }`}>
+                            {agendamiento.estado === 'procesado' ? 'Procesado' :
+                              agendamiento.estado === 'pendiente' ? 'Pendiente' :
+                                agendamiento.estado === 'entregado' ? 'Entregado' : 'Cancelado'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
