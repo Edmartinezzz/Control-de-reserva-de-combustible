@@ -55,7 +55,7 @@ export default function Dashboard() {
   const fechaFormateada = format(fechaActual, "EEEE d 'de' MMMM 'de' yyyy", { locale: es });
 
   // Obtener estadísticas (ejemplo con React Query)
-  const { data: estadisticas, isLoading } = useQuery({
+  const { data: estadisticas, isLoading, refetch: refetchEstadisticas } = useQuery({
     queryKey: ['estadisticas'],
     queryFn: async () => {
       const { data } = await api.get('/api/estadisticas');
@@ -93,7 +93,7 @@ export default function Dashboard() {
   });
 
   // Obtener estadísticas de retiros para las gráficas
-  const { data: statsRetiros } = useQuery({
+  const { data: statsRetiros, refetch: refetchStatsRetiros, isFetching: isFetchingStats } = useQuery({
     queryKey: ['estadisticasRetiros'],
     queryFn: async () => {
       const { data } = await api.get('/api/estadisticas/retiros');
@@ -174,6 +174,22 @@ export default function Dashboard() {
     ],
   };
 
+  // Función para actualizar todas las gráficas manualmente
+  const handleRefreshCharts = async () => {
+    try {
+      await Promise.all([
+        refetchEstadisticas(),
+        refetchStatsRetiros()
+      ]);
+      // Mostrar toast de éxito
+      const toastModule = await import('react-hot-toast');
+      toastModule.default.success('Gráficas actualizadas correctamente');
+    } catch (error) {
+      const toastModule = await import('react-hot-toast');
+      toastModule.default.error('Error al actualizar las gráficas');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -198,6 +214,15 @@ export default function Dashboard() {
               )}
             </div>
             <div className="flex gap-3">
+              <button
+                onClick={handleRefreshCharts}
+                disabled={isFetchingStats}
+                className="flex items-center px-4 py-2 bg-indigo-600 dark:bg-indigo-700 text-white rounded-lg hover:bg-indigo-700 dark:hover:bg-indigo-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+                title="Actualizar todas las gráficas"
+              >
+                <FiRefreshCw className={`mr-2 ${isFetchingStats ? 'animate-spin' : ''}`} />
+                Actualizar Gráficas
+              </button>
               <button
                 onClick={() => router.push('/admin/agendamientos-diarios')}
                 className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"

@@ -1,65 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server';
-import path from 'path';
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
 
 export async function GET(request: NextRequest) {
-    try {
-        // Resolve the SQLite database file (adjust path if needed)
-        const dbPath = path.resolve(process.cwd(), 'gas_delivery.db');
-        const db = await open({ filename: dbPath, driver: sqlite3.Database });
+  const base = process.env.BACKEND_API_BASE_URL;
 
-        // Litros retirados hoy
-        const hoy = await db.get(`
-      SELECT COALESCE(SUM(litros), 0) as total
-      FROM retiros
-      WHERE DATE(fecha) = DATE('now', 'localtime')
-    `);
-        // Litros retirados este mes
-        const esteMes = await db.get(`
-      SELECT COALESCE(SUM(litros), 0) as total
-      FROM retiros
-      WHERE strftime('%Y-%m', fecha) = strftime('%Y-%m', 'now', 'localtime')
-    `);
-        // Litros retirados este año
-        const esteAno = await db.get(`
-      SELECT COALESCE(SUM(litros), 0) as total
-      FROM retiros
-      WHERE strftime('%Y', fecha) = strftime('%Y', 'now', 'localtime')
-    `);
-        // Clientes únicos que retiraron hoy
-        const clientesHoy = await db.get(`
-      SELECT COUNT(DISTINCT cliente_id) as total
-      FROM retiros
-      WHERE DATE(fecha) = DATE('now', 'localtime')
-    `);
-        // Litros por mes (últimos 12 meses)
-        const litrosPorMes = await db.all(`
-      SELECT strftime('%Y-%m', fecha) as mes, SUM(litros) as total
-      FROM retiros
-      WHERE fecha >= date('now', '-12 months', 'localtime')
-      GROUP BY strftime('%Y-%m', fecha)
-      ORDER BY mes ASC
-    `);
-        // Retiros por día (últimos 7 días)
-        const retirosPorDia = await db.all(`
-      SELECT DATE(fecha) as dia, SUM(litros) as total, COUNT(DISTINCT cliente_id) as clientes
-      FROM retiros
-      WHERE fecha >= date('now', '-7 days', 'localtime')
-      GROUP BY DATE(fecha)
-      ORDER BY dia ASC
-    `);
-        await db.close();
+  // Si hay un backend configurado, usarlo (Proxy)
+  if (base) {
+    try {
+      const authHeader = request.headers.get('authorization');
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      if (authHeader) {
+        headers['Authorization'] = authHeader;
+      }
+
+      const resp = await fetch(`${base}/api/estadisticas/retiros`, {
+        method: 'GET',
+        headers,
+        cache: 'no-store'
+      });
+
+      if (!resp.ok) {
+        // Si falla el backend, intentar devolver estructura vacía para no romper el frontend
+        console.error(`Backend error: ${resp.status}`);
         return NextResponse.json({
-            litrosHoy: hoy?.total || 0,
-            litrosMes: esteMes?.total || 0,
-            litrosAno: esteAno?.total || 0,
-            clientesHoy: clientesHoy?.total || 0,
-            litrosPorMes: litrosPorMes || [],
-            retirosPorDia: retirosPorDia || [],
+          litrosHoy: 0,
+          litrosMes: 0,
+          litrosAno: 0,
+          clientesHoy: 0,
+          litrosPorMes: [],
+          retirosPorDia: []
         });
+      }
+
+      const data = await resp.json();
+      return NextResponse.json(data);
     } catch (e: any) {
-        console.error('Error al obtener estadísticas de retiros:', e);
-        return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
+      console.error('Error proxying to backend:', e);
+      // Fallback seguro
+      return NextResponse.json({
+        litrosHoy: 0,
+        litrosMes: 0,
+        litrosAno: 0,
+        clientesHoy: 0,
+        litrosPorMes: [],
+        retirosPorDia: []
+      });
     }
+  }
+
+  // Si no hay backend configurado, devolver 0s (evitar error 500)
+  return NextResponse.json({
+    litrosHoy: 0,
+    litrosMes: 0,
+    litrosAno: 0,
+    clientesHoy: 0,
+    litrosPorMes: [],
+    retirosPorDia: []
+  });
 }
