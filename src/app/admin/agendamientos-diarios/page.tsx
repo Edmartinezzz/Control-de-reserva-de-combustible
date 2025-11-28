@@ -356,6 +356,115 @@ export default function AgendamientosDiariosPage() {
     });
   };
 
+  const descargarTicketsPDF = () => {
+    if (agendamientosFiltrados.length === 0) {
+      toast.error('No hay agendamientos para generar tickets');
+      return;
+    }
+
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 10;
+    const ticketWidth = (pageWidth - (margin * 3)) / 2; // 2 columns
+    const ticketHeight = (pageHeight - (margin * 5)) / 4; // 4 rows
+
+    // Colors
+    const azul: [number, number, number] = [37, 99, 235];
+    const gris: [number, number, number] = [75, 85, 99];
+
+    let ticketsOnPage = 0;
+
+    agendamientosFiltrados.forEach((agendamiento: Agendamiento, index: number) => {
+      if (ticketsOnPage === 8) {
+        doc.addPage();
+        ticketsOnPage = 0;
+      }
+
+      // Calculate position
+      const col = ticketsOnPage % 2;
+      const row = Math.floor(ticketsOnPage / 2);
+
+      const x = margin + (col * (ticketWidth + margin));
+      const y = margin + (row * (ticketHeight + margin));
+
+      // Draw Ticket Border (Dashed line for cutting)
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineDashPattern([3, 3], 0);
+      doc.rect(x, y, ticketWidth, ticketHeight);
+      doc.setLineDashPattern([], 0); // Reset to solid
+
+      // Ticket Header
+      doc.setFillColor(...azul);
+      doc.rect(x, y, ticketWidth, 15, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`TICKET #${agendamiento.codigo_ticket.toString().padStart(3, '0')}`, x + 5, y + 10);
+
+      // Date in header
+      doc.setFontSize(8);
+      doc.text(new Date(agendamiento.fecha_agendada).toLocaleDateString('es-ES'), x + ticketWidth - 25, y + 10);
+
+      // Content
+      doc.setTextColor(...gris);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+
+      let currentY = y + 25;
+
+      // Client Info
+      doc.text('CLIENTE:', x + 5, currentY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(doc.splitTextToSize(agendamiento.cliente_nombre, ticketWidth - 10), x + 5, currentY + 5);
+
+      currentY += 15;
+
+      // Worker Info (if exists)
+      if (agendamiento.subcliente_nombre) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('TRABAJADOR:', x + 5, currentY);
+        doc.setFont('helvetica', 'normal');
+        doc.text(agendamiento.subcliente_nombre, x + 28, currentY);
+
+        currentY += 5;
+        doc.text(`CI: ${agendamiento.subcliente_cedula || 'N/A'}`, x + 5, currentY);
+        doc.text(`Placa: ${agendamiento.subcliente_placa || 'N/A'}`, x + 50, currentY);
+        currentY += 8;
+      } else {
+        // If no worker, show client details
+        doc.setFont('helvetica', 'bold');
+        doc.text('DETALLES:', x + 5, currentY);
+        currentY += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.text(`CI/RIF: ${agendamiento.cedula}`, x + 5, currentY);
+        doc.text(`Placa: ${agendamiento.placa || 'N/A'}`, x + 50, currentY);
+        currentY += 8;
+      }
+
+      // Fuel Info (Highlighted)
+      doc.setFillColor(240, 240, 240);
+      doc.rect(x + 2, currentY, ticketWidth - 4, 15, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`${agendamiento.litros} L`, x + 10, currentY + 10);
+      doc.text(agendamiento.tipo_combustible.toUpperCase(), x + 40, currentY + 10);
+
+      // Footer
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 150);
+      doc.text('Sistema de Despacho de Gas', x + 5, y + ticketHeight - 5);
+
+      ticketsOnPage++;
+    });
+
+    doc.save(`Tickets_Imprimibles_${fechaSeleccionada}.pdf`);
+    toast.success('Tickets generados exitosamente');
+  };
+
   // Filtrar agendamientos según búsqueda y filtros
   const agendamientosFiltrados = agendamientos.filter((agendamiento: Agendamiento) => {
     // Filtro por búsqueda (ticket, nombre, cédula)
@@ -412,6 +521,15 @@ export default function AgendamientosDiariosPage() {
                 >
                   <FiDownload className="mr-2 h-4 w-4" />
                   Descargar Lista
+                </button>
+
+                <button
+                  onClick={descargarTicketsPDF}
+                  disabled={agendamientos.length === 0}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed ml-2"
+                >
+                  <FiDownload className="mr-2 h-4 w-4" />
+                  Descargar Tickets
                 </button>
               </div>
             </div>
