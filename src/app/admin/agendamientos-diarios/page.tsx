@@ -403,9 +403,11 @@ export default function AgendamientosDiariosPage() {
       doc.setFont('helvetica', 'bold');
       doc.text(`TICKET #${agendamiento.codigo_ticket.toString().padStart(3, '0')}`, x + 5, y + 10);
 
-      // Date in header
+      // Date and Time in header
       doc.setFontSize(8);
-      doc.text(new Date(agendamiento.fecha_agendada).toLocaleDateString('es-ES'), x + ticketWidth - 25, y + 10);
+      const fecha = new Date(agendamiento.fecha_agendada).toLocaleDateString('es-ES');
+      const hora = new Date(agendamiento.fecha_creacion).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: true });
+      doc.text(`${fecha} - ${hora}`, x + ticketWidth - 35, y + 10);
 
       // Content
       doc.setTextColor(...gris);
@@ -421,8 +423,8 @@ export default function AgendamientosDiariosPage() {
 
       currentY += 15;
 
-      // Worker Info (if exists)
-      if (agendamiento.subcliente_nombre) {
+      // Worker Info (if exists and different from client)
+      if (agendamiento.subcliente_nombre && agendamiento.subcliente_nombre !== agendamiento.cliente_nombre) {
         doc.setFont('helvetica', 'bold');
         doc.text('TRABAJADOR:', x + 5, currentY);
         doc.setFont('helvetica', 'normal');
@@ -433,7 +435,7 @@ export default function AgendamientosDiariosPage() {
         doc.text(`Placa: ${agendamiento.subcliente_placa || 'N/A'}`, x + 50, currentY);
         currentY += 8;
       } else {
-        // If no worker, show client details
+        // If no worker or worker is same as client, show client details
         doc.setFont('helvetica', 'bold');
         doc.text('DETALLES:', x + 5, currentY);
         currentY += 5;
