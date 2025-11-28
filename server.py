@@ -1172,7 +1172,27 @@ def crear_agendamiento():
         if not cliente_id or not litros:
             return jsonify({'error': 'Faltan datos requeridos'}), 400
             
-        # 1. Verificar saldo disponible del cliente
+        # 1. Verificar INVENTARIO GLOBAL disponible
+        cursor.execute('''
+            SELECT litros_disponibles 
+            FROM inventario 
+            WHERE tipo_combustible = %s 
+            ORDER BY id DESC 
+            LIMIT 1
+        ''', (tipo_combustible,))
+        
+        inventario_row = cursor.fetchone()
+        inventario_disponible = inventario_row['litros_disponibles'] if inventario_row else 0
+        
+        # Validar que hay inventario suficiente
+        if inventario_disponible < litros:
+            return jsonify({
+                'error': f'Inventario insuficiente de {tipo_combustible}. Disponible: {inventario_disponible}L, Solicitado: {litros}L',
+                'inventario_disponible': inventario_disponible,
+                'tipo_combustible': tipo_combustible
+            }), 400
+        
+        # 2. Verificar saldo disponible del cliente
         cursor.execute('SELECT * FROM clientes WHERE id = %s AND activo = TRUE', (cliente_id,))
         cliente = cursor.fetchone()
         
@@ -1182,13 +1202,13 @@ def crear_agendamiento():
         campo_disponible = f'litros_disponibles_{tipo_combustible}'
         saldo_actual = cliente.get(campo_disponible, 0)
         
-        # Validar saldo suficiente
+        # Validar saldo suficiente del cliente
         if saldo_actual < litros:
              return jsonify({
                  'error': f'Saldo insuficiente. Disponible: {saldo_actual}L, Solicitado: {litros}L'
              }), 400
         
-        # 2. Generar código de ticket (número secuencial para la fecha agendada)
+        # 3. Generar código de ticket (número secuencial para la fecha agendada)
         cursor.execute('''
             SELECT COALESCE(MAX(codigo_ticket), 0) + 1 as next_ticket
             FROM agendamientos
@@ -1197,7 +1217,7 @@ def crear_agendamiento():
         
         codigo_ticket = cursor.fetchone()['next_ticket']
         
-        # 3. Insertar agendamiento con código de ticket
+        # 4. Insertar agendamiento con código de ticket
         cursor.execute('''
             INSERT INTO agendamientos (
                 cliente_id, tipo_combustible, litros, fecha_agendada, 
@@ -1205,8 +1225,7 @@ def crear_agendamiento():
             ) VALUES (%s, %s, %s, %s, %s, 'pendiente', %s)
         ''', (cliente_id, tipo_combustible, litros, fecha_agendada, subcliente_id, codigo_ticket))
         
-        # 4. ACTUALIZAR SALDO DEL CLIENTE (Restar litros)
-        # Esto faltaba y por eso no se restaban los litros
+        # 5. ACTUALIZAR SALDO DEL CLIENTE (Restar litros)
         print(f"DEBUG: Descontando {litros}L de {tipo_combustible} al cliente {cliente_id}")
         cursor.execute(f'''
             UPDATE clientes 
@@ -1215,7 +1234,7 @@ def crear_agendamiento():
             WHERE id = %s
         ''', (litros, litros, cliente_id))
         
-        # 5. Si hay subcliente, también actualizar su saldo (opcional, pero recomendado si se lleva control)
+        # 6. Si hay subcliente, también actualizar su saldo
         if subcliente_id:
             cursor.execute(f'''
                 UPDATE subclientes 
@@ -1223,8 +1242,24 @@ def crear_agendamiento():
                 WHERE id = %s
             ''', (litros, subcliente_id))
         
-        # 6. Actualizar inventario (opcional en agendamiento, o se hace al entregar)
-        # Por ahora solo restamos del cupo del cliente
+        # 7. ACTUALIZAR INVENTARIO GLOBAL - RESTAR LITROS
+        # Calcular nuevo inventario disponible
+        nuevo_inventario = inventario_disponible - litros
+        
+        # Insertar nuevo registro en el historial de inventario (como salida/retiro)
+        print(f"DEBUG: Descontando {litros}L de inventario de {tipo_combustible}. Antes: {inventario_disponible}L, Después: {nuevo_inventario}L")
+        cursor.execute('''
+            INSERT INTO inventario (
+                tipo_combustible, litros_ingresados, litros_disponibles, 
+                usuario_id, observaciones
+            ) VALUES (%s, %s, %s, %s, %s)
+        ''', (
+            tipo_combustible, 
+            -litros,  # Negativo porque es una salida
+            nuevo_inventario,
+            g.usuario_id if hasattr(g, 'usuario_id') else None,
+            f'Agendamiento #{codigo_ticket} - Cliente ID: {cliente_id}'
+        ))
         
         db.commit()
         
@@ -1233,12 +1268,14 @@ def crear_agendamiento():
             'id': cursor.lastrowid,
             'codigo_ticket': codigo_ticket,
             'fecha_agendada': fecha_agendada,
-            'nuevo_saldo': saldo_actual - litros
+            'nuevo_saldo_cliente': saldo_actual - litros,
+            'nuevo_inventario': nuevo_inventario
         }), 201
     except Exception as e:
         db.rollback()
         print(f"Error al crear agendamiento: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
+
 
 @app.route('/api/agendamientos/<int:agendamiento_id>/entregar', methods=['PATCH'])
 @token_required
