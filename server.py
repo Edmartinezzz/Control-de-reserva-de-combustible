@@ -1172,6 +1172,17 @@ def crear_agendamiento():
         if not cliente_id or not litros:
             return jsonify({'error': 'Faltan datos requeridos'}), 400
             
+        # 0. Verificar si los agendamientos están BLOQUEADOS
+        cursor.execute('SELECT retiros_bloqueados FROM sistema_config WHERE id = 1')
+        config_row = cursor.fetchone()
+        retiros_bloqueados = config_row['retiros_bloqueados'] if config_row else 0
+        
+        if retiros_bloqueados:
+            return jsonify({
+                'error': 'Los agendamientos están temporalmente bloqueados por el administrador. Por favor intente más tarde.',
+                'bloqueado': True
+            }), 403
+            
         # 1. Verificar INVENTARIO GLOBAL disponible
         cursor.execute('''
             SELECT litros_disponibles 
