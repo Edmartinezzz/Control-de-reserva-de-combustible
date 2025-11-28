@@ -1179,7 +1179,7 @@ def crear_agendamiento():
         
         if retiros_bloqueados:
             return jsonify({
-                'error': 'Los agendamientos están temporalmente bloqueados por el administrador. Por favor intente más tarde.',
+                'error': 'El servicio de agendamientos no está disponible temporalmente. Por favor intente más tarde.',
                 'bloqueado': True
             }), 403
             
